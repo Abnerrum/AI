@@ -37,3 +37,12 @@
 #status-copia:empty { display: none; }
 .nuvem-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .nuvem-acoes a { display: inline-flex; align-items: center; text-decoration: none; }
+.nuvem-cartao input[type="password"] {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 9px;
+  border: 1px solid var(--borda);
+  background: var(--input-bg);
+}
+.texto-chat { white-space: pre-wrap; overflow-wrap: anywhere; }
+#status-chat:empty { display: none; }

@@ -14,6 +14,17 @@ cp assistente-web/painel_web/nuvem/{index.html,nuvem.css,nuvem.js} dist/ &&
 cp assistente-web/painel_web/estatico/{aquilix-logo.png,icone.svg,painel.css} dist/estatico/
 ```
 
+### Chat privado com Claude no Render
+
+O painel público de prompts oferece um link para o chat privado. Para instalar o chat em outro Render, crie um **Web Service** Python com estas configurações:
+
+- Build: `pip install -r assistente-web/requirements-nuvem.txt`
+- Start: `gunicorn --chdir assistente-web --workers 1 --threads 4 --bind 0.0.0.0:$PORT nuvem_claude:app`
+- `AQUILIX_LOGIN_PASSWORD`: senha própria para entrar no AQUILIX, de 16 a 256 caracteres.
+- `ANTHROPIC_API_KEY`: chave da API do Claude, vinculada a um workspace do Claude Console. Configure os dois valores em **Environment** no Render.
+
+O chat usa Haiku, limita cada resposta a 512 tokens e envia no máximo dois pares de mensagens anteriores. O limite de 60 solicitações por 24 horas é mantido em memória e reinicia com o processo. O histórico fica na aba do navegador. A sessão de acesso expira após oito horas ou quando o servidor reinicia.
+
 ## Iniciar no Windows
 
 1. Instale Python **3.11 a 3.13** e marque Add Python to PATH.

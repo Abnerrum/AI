@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101e">
+  <title>AQUILIX AI | Claude na nuvem</title>
+  <link rel="icon" href="{{ url_for('arquivo', nome='icone.svg') }}">
+  <link rel="stylesheet" href="{{ url_for('arquivo', nome='painel.css') }}">
+  <link rel="stylesheet" href="{{ url_for('arquivo', nome='nuvem.css') }}">
+  {% if autorizado and claude_ativo %}
+  <meta name="aquilix-csrf" content="{{ csrf }}">
+  <script src="{{ url_for('arquivo', nome='chat.js') }}" defer></script>
+  {% endif %}
+</head>
+<body class="main">
+  <header class="topbar">
+    <a class="marca" href="/" aria-label="AQUILIX AI, início">
+      <span class="marca-icone"><img class="aquilix-logo" src="{{ url_for('arquivo', nome='aquilix-logo.png') }}" alt=""></span>
+      <span class="marca-nome">AQUILIX <span>AI</span></span>
+    </a>
+    <span class="topbar-marca"><i aria-hidden="true"></i> CHAT NA NUVEM</span>
+  </header>
+
+  <main class="conversa nuvem">
+    <section class="nuvem-intro">
+      <p class="boas-vindas-etiqueta">Modo econômico</p>
+      <h1>Claude no AQUILIX</h1>
+      <p>Converse com o Claude Haiku. O chat envia apenas o contexto recente e limita o tamanho das respostas.</p>
+    </section>
+
+    {% if not configurado %}
+    <section class="nuvem-cartao">
+      <h2>Configuração inicial pendente</h2>
+      <p>O administrador precisa criar uma senha de acesso ao AQUILIX no Render.</p>
+    </section>
+    {% elif not autorizado %}
+    <form method="post" class="nuvem-cartao">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <h2>Entrar no AQUILIX</h2>
+      <label for="senha">Senha do AQUILIX</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" maxlength="256" required>
+      {% if erro %}<p role="alert">{{ erro }}</p>{% endif %}
+      <div><button type="submit" class="botao-principal">Entrar</button></div>
+    </form>
+    {% else %}
+    {% if claude_ativo %}
+    <section id="mensagens" aria-label="Conversa" class="nuvem-cartao" role="log" hidden></section>
+    <form id="chat" class="nuvem-cartao">
+      <label for="mensagem">Sua mensagem</label>
+      <textarea id="mensagem" rows="4" maxlength="{{ max_texto }}" required></textarea>
+      <div class="nuvem-acoes">
+        <button class="botao-principal" type="submit">Enviar ao Claude</button>
+        <button class="botao-leve" id="limpar" type="button">Nova conversa</button>
+      </div>
+      <span id="status-chat" role="status"></span>
+      <small>Ao enviar, o texto da conversa recente vai para a API da Anthropic. O histórico fica nesta aba.</small>
+    </form>
+    {% else %}
+    <section class="nuvem-cartao">
+      <h2>Conexão com o Claude pendente</h2>
+      <p>Adicione a chave da API do Claude nas variáveis de ambiente do serviço no Render.</p>
+    </section>
+    {% endif %}
+    <form action="{{ url_for('sair') }}" method="post">
+      <input type="hidden" name="csrf" value="{{ csrf }}">
+      <button class="botao-leve" type="submit">Sair</button>
+    </form>
+    {% endif %}
+    <div><a class="botao-leve" href="https://aquilix-ai.onrender.com/">Voltar ao painel público</a></div>
+  </main>
+</body>
+</html>
