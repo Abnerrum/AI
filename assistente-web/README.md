@@ -2,6 +2,18 @@
 
 Automacao local em Python com comandos JSON copiados do **site do ChatGPT**, sem API. O ChatGPT nao acessa o computador automaticamente e nao existe interpretacao livre de linguagem natural no programa: ele executa as acoes JSON documentadas.
 
+## Painel público na nuvem
+
+A versão em `painel_web/nuvem` permite escolher um departamento, experimentar tarefas fictícias e montar prompts para usar no Claude ou no ChatGPT. A geração acontece no navegador. O painel público usa apenas os arquivos listados no build abaixo e funciona com o notebook desligado.
+
+No Render, crie um **Static Site** usando este repositório. Deixe o diretório raiz vazio, use `dist` como diretório de publicação e configure este comando de build:
+
+```sh
+mkdir -p dist/estatico &&
+cp assistente-web/painel_web/nuvem/{index.html,nuvem.css,nuvem.js} dist/ &&
+cp assistente-web/painel_web/estatico/{aquilix-logo.png,icone.svg,painel.css} dist/estatico/
+```
+
 ## Iniciar no Windows
 
 1. Instale Python **3.11 a 3.13** e marque Add Python to PATH.

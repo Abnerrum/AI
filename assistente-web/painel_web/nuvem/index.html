@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#07101e">
+  <title>AQUILIX AI | Painel na nuvem</title>
+  <link rel="icon" href="estatico/icone.svg">
+  <link rel="stylesheet" href="estatico/painel.css">
+  <link rel="stylesheet" href="nuvem.css">
+  <script src="nuvem.js" defer></script>
+</head>
+<body class="main">
+  <header class="topbar">
+    <a class="marca" href="./" aria-label="AQUILIX AI, início">
+      <span class="marca-icone"><img class="aquilix-logo" src="estatico/aquilix-logo.png" alt=""></span>
+      <span class="marca-nome">AQUILIX <span>AI</span></span>
+    </a>
+    <span class="topbar-marca"><i aria-hidden="true"></i> PAINEL NA NUVEM</span>
+  </header>
+
+  <main class="conversa nuvem">
+    <section class="nuvem-intro" aria-labelledby="titulo">
+      <p class="boas-vindas-etiqueta">Versão pública</p>
+      <h1 id="titulo">Organize uma tarefa com o AQUILIX</h1>
+      <p>Escolha um departamento, descreva o que você precisa e gere um prompt para usar no Claude ou no ChatGPT.</p>
+    </section>
+
+    <form id="formulario" class="nuvem-cartao">
+      <label class="seletor-agente" for="agente">Departamento
+        <select id="agente">
+          <option value="operacional">Operacional</option>
+          <option value="financeiro">Financeiro</option>
+          <option value="frotas">Frotas</option>
+          <option value="rh">Recursos Humanos</option>
+          <option value="administrativo">Administrativo</option>
+          <option value="estudos">Estudos</option>
+        </select>
+      </label>
+      <div>
+        <label for="tarefa">O que você precisa fazer?</label>
+        <textarea id="tarefa" rows="4" maxlength="2000" required placeholder="Descreva a tarefa usando dados fictícios."></textarea>
+      </div>
+      <div class="nuvem-acoes">
+        <button class="botao-principal" type="submit">Gerar prompt</button>
+        <button class="botao-leve" type="button" id="exemplo">Usar exemplo</button>
+      </div>
+      <small>O texto fica nesta página até você decidir copiá-lo. As automações do Windows ficam no aplicativo local.</small>
+    </form>
+
+    <section id="resultado" class="nuvem-cartao" aria-labelledby="titulo-resultado" hidden>
+      <h2 id="titulo-resultado">Seu prompt</h2>
+      <textarea id="prompt" aria-label="Prompt gerado" rows="8" readonly></textarea>
+      <div class="nuvem-acoes">
+        <button class="botao-principal" type="button" id="copiar">Copiar prompt</button>
+        <a class="botao-leve" href="https://claude.ai/new" target="_blank" rel="noopener noreferrer">Abrir Claude</a>
+        <a class="botao-leve" href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer">Abrir ChatGPT</a>
+      </div>
+      <span id="status-copia" role="status"></span>
+    </section>
+  </main>
+</body>
+</html>

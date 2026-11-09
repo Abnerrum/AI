@@ -1,0 +1,39 @@
+.nuvem {
+  width: min(100%, 800px);
+  align-self: center;
+  padding: 32px clamp(16px, 4vw, 40px);
+}
+.nuvem-intro h1 {
+  margin: 0;
+  font-size: clamp(27px, 5vw, 44px);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+.nuvem-intro p { color: var(--suave); }
+.nuvem-intro .boas-vindas-etiqueta { color: var(--destaque-hover); }
+.nuvem-cartao {
+  display: grid;
+  gap: 16px;
+  padding: clamp(16px, 4vw, 26px);
+  background: var(--superficie);
+  border: 1px solid var(--borda);
+  border-radius: 16px;
+}
+.nuvem-cartao[hidden] { display: none; }
+.nuvem-cartao h2 { margin: 0; font-size: 19px; }
+.nuvem-cartao .seletor-agente { width: min(100%, 310px); }
+.nuvem-cartao textarea {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  resize: vertical;
+  border-radius: 9px;
+  border: 1px solid var(--borda);
+  background: var(--input-bg);
+}
+.nuvem-cartao small, #status-copia { color: var(--suave); }
+#status-copia:empty { display: none; }
+.nuvem-acoes { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.nuvem-acoes a { display: inline-flex; align-items: center; text-decoration: none; }
