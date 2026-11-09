@@ -1,0 +1,10 @@
+venv/
+node_modules/
+__pycache__/
+.pytest_cache/
+*.db*
+sessoes/
+relatorios/
+.env
+painel_dados/
+anexos/

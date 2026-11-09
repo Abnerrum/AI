@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AQUILIX AI — Acesso RH</title>
+<link rel="stylesheet" href="/estatico/painel.css">
+</head>
+<body class="tela-login">
+<form method="post" class="cartao-login">
+  <h1>Acesso exclusivo do RH</h1>
+  <p class="dica">Este login só permite acessar o agente de Recursos Humanos.</p>
+  <label>Login <input name="usuario" autocomplete="username" required autofocus></label>
+  <label>Senha <input type="password" name="senha" autocomplete="current-password" required></label>
+  <p class="erro">{{erro}}</p>
+  <button type="submit" class="botao-principal">Entrar no RH</button>
+  <a class="link-login-rh" href="/login">Voltar ao login principal</a>
+</form>
+</body>
+</html>

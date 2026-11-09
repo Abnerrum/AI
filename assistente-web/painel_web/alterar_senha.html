@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Alterar senha do painel</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/estatico/painel.css">
+</head>
+<body class="tela-login">
+<form method="post" class="cartao-login">
+  <h1>Alterar senha do painel</h1>
+  <p class="dica">Por segurança, esta página funciona somente neste computador. Use pelo menos 12 caracteres e inclua 1507 com uma palavra exclusiva. Não reutilize senhas de outros serviços.</p>
+  <input type="hidden" name="token" value="{{token}}">
+  <label>Nova senha <input type="password" name="senha" minlength="12" maxlength="256" autocomplete="new-password" required autofocus></label>
+  <label>Repita a nova senha <input type="password" name="repetir" minlength="12" maxlength="256" autocomplete="new-password" required></label>
+  <p class="erro">{{erro}}</p>
+  <button type="submit" class="botao-principal">Salvar senha</button>
+  <a class="link-login-rh" href="/">Voltar ao painel</a>
+</form>
+</body>
+</html>

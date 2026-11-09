@@ -1,0 +1,12 @@
+playwright==1.49.1
+pandas==2.2.3
+openpyxl==3.1.5
+flask==3.1.0
+mcp==2.3.0
+keyring==25.7.0
+cryptography==50.0.2
+faster-whisper==1.2.1
+av==15.1.0
+claude-agent-sdk==0.2.167
+pywin32==312
+PyAutoGUI==0.9.54

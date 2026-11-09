@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{titulo}}</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="stylesheet" href="/estatico/painel.css">
+</head>
+<body class="tela-login">
+<form method="post" class="cartao-login" data-primeiro="{{primeiro}}">
+  <h1>{{titulo}}</h1>
+  <p class="dica primeiro-so">Essa senha protege o painel. Ela fica no cofre do Windows deste PC.</p>
+  <label>Senha <input type="password" name="senha" autocomplete="current-password" required autofocus></label>
+  <label class="primeiro-so">Repita a senha <input type="password" name="repetir" autocomplete="new-password"></label>
+  <p class="erro">{{erro}}</p>
+  <button type="submit" class="botao-principal">Entrar</button>
+  <a class="link-login-rh" href="/login-rh">Acesso exclusivo do RH</a>
+</form>
+<script>
+  const f = document.querySelector('form');
+  if (!f.dataset.primeiro) document.querySelectorAll('.primeiro-so').forEach(e => e.remove());
+</script>
+</body>
+</html>

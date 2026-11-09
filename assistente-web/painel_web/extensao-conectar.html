@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Conectar extensão — Assistente Núcleo</title>
+  <style>
+    body { max-width: 620px; margin: 48px auto; padding: 0 20px; font: 16px/1.5 "Segoe UI", sans-serif; color: #20232a; }
+    main { border: 1px solid #d5d9e2; border-radius: 12px; padding: 24px; }
+    button { border: 0; border-radius: 8px; padding: 10px 16px; background: #315fe8; color: white; font: inherit; cursor: pointer; }
+    code { display: block; margin: 16px 0; padding: 14px; border-radius: 8px; background: #f0f2f6; overflow-wrap: anywhere; user-select: all; }
+    #copiar, #codigo { display: none; }
+    #status { min-height: 24px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Conectar extensão do Chrome</h1>
+    <p>Gere um código temporário neste computador. Ele vale por cinco minutos e só pode ser usado uma vez.</p>
+    <button id="gerar" type="button">Gerar código</button>
+    <code id="codigo"></code>
+    <button id="copiar" type="button">Copiar código</button>
+    <p id="status" role="status"></p>
+    <p>Depois, abra o painel lateral da extensão e cole o código. Não compartilhe esse código com outras pessoas.</p>
+  </main>
+  <script>
+    const gerar = document.getElementById("gerar");
+    const codigo = document.getElementById("codigo");
+    const copiar = document.getElementById("copiar");
+    const status = document.getElementById("status");
+    gerar.onclick = async () => {
+      gerar.disabled = true;
+      status.textContent = "Gerando...";
+      try {
+        const resposta = await fetch("/api/extensao/codigo", {
+          method: "POST",
+          headers: {"X-Painel": "1"}
+        });
+        const dados = await resposta.json();
+        if (!resposta.ok) throw new Error(dados.erro || `Erro ${resposta.status}`);
+        codigo.textContent = dados.codigo;
+        codigo.style.display = "block";
+        copiar.style.display = "inline-block";
+        status.textContent = `Expira em ${Math.floor(dados.expira_em / 60)} minutos.`;
+      } catch (erro) {
+        status.textContent = erro.message;
+      } finally {
+        gerar.disabled = false;
+      }
+    };
+    copiar.onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(codigo.textContent);
+        status.textContent = "Código copiado. Cole-o no painel lateral da extensão.";
+      } catch (erro) {
+        status.textContent = "Selecione e copie o código exibido.";
+      }
+    };
+  </script>
+</body>
+</html>

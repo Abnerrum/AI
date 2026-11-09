@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Ordem - Sistema Demo</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f0f2f5; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; }
+        h1 { color: #2F5496; font-size: 22px; margin-bottom: 20px; }
+        .flash { padding: 10px 14px; border-radius: 6px; margin-bottom: 16px; font-size: 14px; }
+        .flash.danger { background: #fce4e4; color: #c0392b; }
+        .flash.warning { background: #fff3cd; color: #856404; }
+        .form-box { background: white; padding: 24px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        label { display: block; margin-bottom: 4px; font-weight: 600; color: #333; font-size: 14px; }
+        input, select, textarea { width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; margin-bottom: 14px; }
+        textarea { resize: vertical; min-height: 80px; }
+        .btn-group { display: flex; gap: 10px; margin-top: 8px; }
+        button { padding: 10px 20px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; font-weight: 600; }
+        .btn-salvar { background: #2F5496; color: white; }
+        .btn-salvar:hover { background: #1e3a6e; }
+        .btn-cancelar { background: #e0e0e0; color: #333; text-decoration: none; display: inline-block; text-align: center; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; }
+        .btn-cancelar:hover { background: #ccc; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Nova Ordem de Servico</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <div class="form-box">
+            <form method="POST" id="form-nova-ordem">
+                <label for="cliente">Cliente *</label>
+                <select id="cliente" name="cliente" required>
+                    <option value="">Selecione...</option>
+                    {% for c in clientes %}
+                    <option value="{{ c }}">{{ c }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="tecnico">Tecnico Responsavel *</label>
+                <select id="tecnico" name="tecnico" required>
+                    <option value="">Selecione...</option>
+                    {% for t in tecnicos %}
+                    <option value="{{ t }}">{{ t }}</option>
+                    {% endfor %}
+                </select>
+
+                <label for="descricao">Descricao do Servico</label>
+                <textarea id="descricao" name="descricao" placeholder="Descreva o servico..."></textarea>
+
+                <label for="valor">Valor (R$)</label>
+                <input type="text" id="valor" name="valor" placeholder="0,00">
+
+                <div class="btn-group">
+                    <button type="submit" class="btn-salvar">Salvar Ordem</button>
+                    <a href="{{ url_for('ordens') }}" class="btn-cancelar">Cancelar</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

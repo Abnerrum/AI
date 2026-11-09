@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Assistente Núcleo",
+  "version": "1.0.0",
+  "description": "Converse com o Assistente Núcleo no painel lateral do Chrome.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "sidePanel", "storage", "tabs"],
+  "host_permissions": ["http://127.0.0.1:5050/*"],
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "action": {
+    "default_title": "Abrir Assistente Núcleo"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  }
+}

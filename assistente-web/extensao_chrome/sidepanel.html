@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assistente Núcleo</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <header>
+    <div>
+      <strong>Assistente Núcleo</strong>
+      <span id="status">Desconectado</span>
+    </div>
+    <div>
+      <button id="voz" class="secundario" title="Ativar respostas faladas" aria-pressed="false">🔇</button>
+      <button id="parar" class="secundario" hidden>Parar</button>
+      <button id="nova" title="Nova conversa" disabled>Nova</button>
+    </div>
+  </header>
+
+  <section id="conectar">
+    <p>Conecte com o Assistente Web deste computador.</p>
+    <button id="abrir-painel">Gerar código no painel</button>
+    <label for="codigo">Código temporário</label>
+    <input id="codigo" autocomplete="one-time-code" spellcheck="false">
+    <button id="vincular">Conectar extensão</button>
+    <button id="desconectar" class="secundario" hidden>Desconectar extensão</button>
+  </section>
+
+  <main>
+    <label class="departamento" for="agente">Departamento</label>
+    <select id="agente" disabled></select>
+    <button id="contexto" class="secundario" disabled>Incluir texto da aba atual</button>
+    <p id="contexto-status" aria-live="polite"></p>
+    <div id="conversa" role="log" aria-live="polite"></div>
+  </main>
+
+  <footer>
+    <textarea id="texto" rows="3" placeholder="Escreva uma mensagem..." disabled></textarea>
+    <button id="enviar" disabled>Enviar</button>
+    <p>O conteúdo da aba só é lido quando você escolhe incluí-lo.</p>
+  </footer>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

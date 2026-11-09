@@ -1,0 +1,9 @@
+{
+  "name": "AQUILIX AI",
+  "short_name": "AQUILIX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#07101e",
+  "theme_color": "#07101e",
+  "icons": [{"src": "/estatico/icone.svg", "sizes": "any", "type": "image/svg+xml"}]
+}

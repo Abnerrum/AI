@@ -1,0 +1,18 @@
+INSTALACAO AUTOMATICA NO WINDOWS
+
+Extraia em uma pasta nova e clique em INICIAR.bat.
+Ele procura Python 3.11 a 3.13, instala Python via winget se faltar,
+cria o ambiente local e instala bibliotecas e Chromium.
+Internet e necessaria na primeira configuracao. Downloads podem demorar.
+Se o Windows nao tiver winget, o programa explica como obter App Installer.
+Nas proximas aberturas, componentes instalados sao reutilizados.
+Claude Desktop e Claude Code sao aplicativos separados; instale o modo que desejar usar.
+
+ACESSAR SITE SEM JSON
+Escolha 3 no menu. Cole um link completo (https://...) e pressione Enter.
+O navegador abre automaticamente. Digite login para abrir a janela local
+que recebe suas credenciais. Se o site nao aceitar o preenchimento automatico,
+faca login diretamente no navegador, incluindo 2FA, e digite login manual.
+Senhas nao devem ser coladas no terminal ou no chat.
+Este modo nao interpreta frases livres como um chatbot; aceita links,
+comandos rapidos e os comandos JSON descritos na documentacao.
