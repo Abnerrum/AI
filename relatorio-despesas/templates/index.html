@@ -115,7 +115,7 @@ function notification(message,type='ok'){
 async function reload(){
   $('#updateButton').disabled=true;
   $('#status').textContent='Consultando registros no banco de dados…';
-  try{const result=await requestJSON('/api/records');load(result.registros||[],true);}
+  try{const result=await requestJSON('/api/records');load(result.registros||[],true);if(!result.storage_ready){$('#status').textContent='Banco persistente não configurado: conecte PostgreSQL antes de importar.';$('#importButton').disabled=true;$('#manualButton').disabled=true;}else{$('#importButton').disabled=false;$('#manualButton').disabled=false;}}
   catch(e){$('#status').textContent='Não foi possível carregar: '+e.message;notification(e.message,'error');}
   finally{$('#updateButton').disabled=false;}
 }
