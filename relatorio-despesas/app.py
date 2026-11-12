@@ -267,6 +267,12 @@ def require_auth(request: Request):
         raise HTTPException(401, "Faça login para acessar os dados.")
 
 
+def require_persistent_storage():
+    # Render gratuito tem disco efêmero. Nunca permita uploads persistidos em SQLite online.
+    if os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite":
+        raise HTTPException(503, "Configure DATABASE_URL com PostgreSQL persistente antes de adicionar despesas na hospedagem.")
+
+
 def require_csrf(request: Request, body=None):
     token = request.headers.get("X-CSRF-Token") or ((body or {}).get("csrf_token") if isinstance(body, dict) else None)
     valid = request.session.get("csrf_token")
@@ -339,13 +345,15 @@ def records(request: Request):
     require_auth(request)
     with SessionLocal() as db:
         records = db.scalars(select(Despesa).order_by(Despesa.data.desc(), Despesa.pk.desc())).all()
-        return {"registros": [serialize_expense(x) for x in records], "total": len(records)}
+        return {"registros": [serialize_expense(x) for x in records], "total": len(records),
+                "storage_ready": not (os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite")}
 
 
 @app.post("/api/import")
 async def upload(request: Request):
     require_auth(request)
     require_csrf(request)
+    require_persistent_storage()
     form = await request.form()
     file = form.get("file")
     if not file or not getattr(file, "filename", None):
@@ -369,6 +377,7 @@ async def upload(request: Request):
 async def create_manual(request: Request):
     require_auth(request)
     require_csrf(request)
+    require_persistent_storage()
     payload = await request.json()
     try:
         data = parse_date(payload.get("data"))
