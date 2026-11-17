@@ -4,6 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>Smart Center | Núcleo Service</title>
+<script>try{document.documentElement.dataset.theme=localStorage.getItem('nucleo-bi-theme')==='light'?'light':'dark';}catch(_){document.documentElement.dataset.theme='dark'}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
 :root{--bg:#07090f;--bg2:#0d1120;--bg3:#111928;--card:#0e1522;--border:#1b2840;--accent:#1a6eff;--cyan:#00c8ff;--text:#dce8f8;--muted:#7a90b0;--g:#2563eb;--ng:#ef4444;--shadow:0 4px 24px #00000070}
@@ -101,6 +102,52 @@ tbody td:last-child{text-align:right;font-weight:800;color:#e0f0ff;font-variant-
 details summary::-webkit-details-marker{color:#3a6080}
 @media(max-width:900px){.cols3{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr;grid-template-rows:auto auto}}
 @media(max-width:600px){.kpi-row{grid-template-columns:1fr}.hbtn span{display:none}.dash{padding:10px}}
+
+/* Tema claro para dashboard, filtros, tabelas, gráficos e modais */
+:root{color-scheme:dark;--chart-grid:#1b2840;--chart-label:#7a90b0}
+html[data-theme="light"]{color-scheme:light;--bg:#f3f6fb;--bg2:#eef3fb;--bg3:#e4edf9;--card:#fff;--border:#d6e1ef;--accent:#155bdb;--cyan:#1359c8;--text:#172b47;--muted:#526781;--shadow:0 4px 24px #183e7018;--chart-grid:#e0e9f3;--chart-label:#49627e}
+html[data-theme="light"] .top-bar{background:#fff}
+html[data-theme="light"] .brand-sub{color:#54708c}
+html[data-theme="light"] .brand-samsung .sep{color:#92a5ba}
+html[data-theme="light"] .hbtn,html[data-theme="light"] .tbtn,html[data-theme="light"] .pager button{background:#eef4fb;border-color:#c6d6eb;color:#244a78}
+html[data-theme="light"] .hbtn:hover,html[data-theme="light"] .tbtn:hover,html[data-theme="light"] .pager button:hover{background:#dfecfd;color:#173d73}
+html[data-theme="light"] .hbtn.green{background:#e4f7ee;border-color:#a5dfc0;color:#146943}
+html[data-theme="light"] .hbtn.teal{background:#e4f6fb;border-color:#b4dfeb;color:#096783}
+html[data-theme="light"] .hbtn.logout{background:transparent;border:0;color:#546987}
+html[data-theme="light"] .user-chip{background:#eef4fc;border-color:#d5e2f3;color:#345b8b}
+html[data-theme="light"] #statusBar{color:#526781}
+html[data-theme="light"] .kpi-big{color:#142b4b}
+html[data-theme="light"] .kpi-label{color:#536983}
+html[data-theme="light"] .seg-btn.g{background:#e5efff;border-color:#b8d0fc;color:#1648a2}
+html[data-theme="light"] .seg-btn.ng{background:#fff0ee;border-color:#f0c1ba;color:#a52e32}
+html[data-theme="light"] .seg-btn.g span{color:#143e8e}
+html[data-theme="light"] .seg-btn.ng span{color:#922a31}
+html[data-theme="light"] .fsel,html[data-theme="light"] .tsearch{background:#fff;border-color:#c9d8e8;color:#1c3758}
+html[data-theme="light"] .fsel option{background:#fff;color:#1c3758}
+html[data-theme="light"] .period-val{color:#1b56a1}
+html[data-theme="light"] .tbtn.primary{background:#e5efff;border-color:#bad2fa;color:#1552b8}
+html[data-theme="light"] thead th{background:#e9f0fa;color:#375877}
+html[data-theme="light"] tbody tr{border-bottom-color:#e4ebf4}
+html[data-theme="light"] tbody tr:hover{background:#f1f6fd}
+html[data-theme="light"] tbody td{color:#344d6b}
+html[data-theme="light"] tbody td:last-child{color:#133c71}
+html[data-theme="light"] .toast{background:#eff6ff;border-color:#bfd9ff;color:#153f75}
+html[data-theme="light"] .toast.error{background:#fff0f0;border-color:#e6b8b8;color:#a32222}
+html[data-theme="light"] .modal{background:#fff;color:#172b47;box-shadow:0 28px 100px #1d3b5c40}
+html[data-theme="light"] .modal-hdr h2{color:#172b47}
+html[data-theme="light"] .modal-close{background:#edf3fb;color:#3d5a78}
+html[data-theme="light"] .upload-zone,html[data-theme="light"] .fonte-item{background:#f6f9fe;border-color:#c7d9ef}
+html[data-theme="light"] .upload-zone strong,html[data-theme="light"] .fonte-nome{color:#1b518f}
+html[data-theme="light"] .form-grid input,html[data-theme="light"] .form-grid select{background:#fff;border-color:#c6d6e8;color:#1c3758}
+html[data-theme="light"] .modal-result,html[data-theme="light"] .fonte-sync{color:#426689}
+html[data-theme="light"] .badge-manual{background:#e1f5e8;color:#136c40;border-color:#a9dbba}
+html[data-theme="light"] .badge-auto{background:#e7f0fe;color:#194c93;border-color:#c5dafa}
+html[data-theme="light"] #fontesDialog details{background:#f6f9fe!important;border-color:#c7d9ef!important}
+html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
+#themeToggle{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:110px}
+#themeToggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@media(max-width:1080px){.top-bar{height:auto;min-height:52px;padding:10px 14px;flex-wrap:wrap}.header-actions{flex-wrap:wrap;justify-content:flex-end}#statusBar{order:3;flex-basis:100%;text-align:left!important}}
+@media(max-width:600px){#themeToggle{min-width:auto}}
 @media print{body{background:#fff;color:#000}.top-bar{background:#1a3a80;-webkit-print-color-adjust:exact}.card{break-inside:avoid}.table-scroll{max-height:none}}
 </style>
 </head>
@@ -118,6 +165,7 @@ details summary::-webkit-details-marker{color:#3a6080}
     <button class="hbtn" id="fontesButton">⚙ <span>Fontes de Dados</span></button>
     <button class="hbtn" id="manualButton">＋ <span>Lançamento</span></button>
     <button class="hbtn" id="printButton">▣ <span>PDF</span></button>
+    <button class="hbtn" id="themeToggle" type="button" aria-label="Ativar modo claro" aria-pressed="false" title="Alternar modo claro e escuro">☀ <span>Modo claro</span></button>
     <span class="user-chip">◉ {{ username }}</span>
     <form action="/logout" method="post" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button class="hbtn logout" type="submit">Sair</button></form>
   </div>
@@ -574,7 +622,44 @@ async function syncSheets(silent=false){
 // Atualiza o painel ao abrir e a cada 15 minutos enquanto esta página está visível.
 $('#sheetsButton').addEventListener('click',()=>syncSheets(false));
 setInterval(()=>{if(document.visibilityState==='visible')syncSheets(true);},15*60*1000);
+
+function refreshChartTheme(){
+  const styles=getComputedStyle(document.documentElement);
+  const label=styles.getPropertyValue('--chart-label').trim()||'#7a90b0';
+  const grid=styles.getPropertyValue('--chart-grid').trim()||'#1b2840';
+  Chart.defaults.color=label;
+  Chart.defaults.borderColor=grid;
+  for(const chart of [cGroups,cOrigins,cMonthly,cCats]){
+    if(!chart)continue;
+    for(const axis of Object.values(chart.options.scales||{})){
+      axis.ticks??={};
+      axis.ticks.color=label;
+      axis.grid??={};
+      if(axis.grid.display!==false)axis.grid.color=grid;
+    }
+    if(chart.options.plugins?.legend){
+      chart.options.plugins.legend.labels??={};
+      chart.options.plugins.legend.labels.color=label;
+    }
+    chart.update('none');
+  }
+}
+function setTheme(mode){
+  const light=mode==='light';
+  document.documentElement.dataset.theme=light?'light':'dark';
+  const btn=$('#themeToggle');
+  btn.innerHTML=light?'☾ <span>Modo escuro</span>':'☀ <span>Modo claro</span>';
+  btn.setAttribute('aria-label',light?'Ativar modo escuro':'Ativar modo claro');
+  btn.setAttribute('aria-pressed',String(light));
+  btn.title=light?'Mudar para o modo escuro':'Mudar para o modo claro';
+  try{localStorage.setItem('nucleo-bi-theme',light?'light':'dark')}catch(_){}
+  refreshChartTheme();
+}
+$('#themeToggle').addEventListener('click',()=>setTheme(
+  document.documentElement.dataset.theme==='light'?'dark':'light'
+));
 initCharts();
+setTheme(document.documentElement.dataset.theme);
 reload();
 </script>
 </body>
