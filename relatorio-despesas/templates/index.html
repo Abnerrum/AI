@@ -60,6 +60,11 @@ button,input,select{font:inherit;cursor:pointer}button:disabled{opacity:.5;curso
 .tsearch{background:#0d1626;border:1px solid #1e3050;border-radius:8px;padding:7px 11px;color:var(--text);width:170px;outline:none}
 .tsearch:focus{border-color:var(--accent)}
 .table-scroll{overflow:auto;border-radius:10px;border:1px solid var(--border);height:380px;max-height:380px;overscroll-behavior:contain;scrollbar-gutter:stable}
+.table-filters{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px;margin:10px 0 12px;border:1px solid var(--border);border-radius:10px;background:var(--card)}
+.table-filters-label{color:var(--muted);font-size:11px;font-weight:700;white-space:nowrap;padding:0 3px}
+.table-filters .fsel{min-width:120px;max-width:220px;flex:1 1 135px;font-size:12px}
+.table-filters .tbtn{white-space:nowrap}
+@media(max-width:600px){.table-filters .fsel{min-width:calc(50% - 8px);max-width:none}.table-filters-label{width:100%}}
 table{border-collapse:collapse;width:100%;min-width:700px}
 thead th{background:#0a1020;color:#6a90c0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:13px 14px;text-align:left;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid var(--border)}
 thead th:last-child{text-align:right}
@@ -234,6 +239,15 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
         <input class="tsearch" id="search" placeholder="Buscar…" autocomplete="off">
       </div>
     </div>
+    <div class="table-filters" role="group" aria-label="Filtros específicos da tabela">
+      <span class="table-filters-label">Filtrar tabela:</span>
+      <select id="detailMonth" class="fsel" aria-label="Mês da tabela"><option value="">Todos os meses</option></select>
+      <select id="detailCategory" class="fsel" aria-label="Categoria da tabela"><option value="">Todas as categorias</option></select>
+      <select id="detailOrigin" class="fsel" aria-label="Origem da tabela"><option value="">Todas as origens</option></select>
+      <select id="detailType" class="fsel" aria-label="Tipo de atendimento da tabela"><option value="">Todos os atendimentos</option></select>
+      <select id="detailPlate" class="fsel" aria-label="Placa ou cartão da tabela"><option value="">Todas as placas/cartões</option></select>
+      <button class="tbtn" id="tableClear" type="button">✕ Limpar tabela</button>
+    </div>
     <div class="table-scroll">
       <table id="detailTable">
         <thead><tr>
@@ -391,7 +405,7 @@ function resetOptions(){
   for(const id of['startMonth','endMonth']){for(const o of $('#'+id).options){if(o.value)o.text=fmtMonth(o.value)}}
 }
 
-function getF(){return Object.fromEntries(['category','type','origin','plate','year','startMonth','endMonth','search'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
+function getF(){return Object.fromEntries(['category','type','origin','plate','year','startMonth','endMonth'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
 
 function apply(){
   const f=getF();
@@ -404,7 +418,6 @@ function apply(){
     if(f.startMonth&&m<f.startMonth)return false;
     if(f.endMonth&&m>f.endMonth)return false;
     if(_segFilter&&r.atendimento!==_segFilter)return false;
-    if(f.search){const q=f.search.toLocaleLowerCase('pt-BR');if(![r.categoria,r.descricao,r.placa,r.atendimento,r.origem,r.fornecedor,r.id].join(' ').toLocaleLowerCase('pt-BR').includes(q))return false;}
     return true;
   });
   render();
@@ -424,8 +437,32 @@ function render(){
   renderTable();
 }
 
+function refreshDetailChoices(){
+  const uniq=fn=>[...new Set(shown.map(fn).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+  choices('detailCategory',uniq(r=>r.categoria),'Todas as categorias');
+  choices('detailOrigin',uniq(r=>r.origem),'Todas as origens');
+  choices('detailType',uniq(r=>r.atendimento),'Todos os atendimentos');
+  choices('detailPlate',uniq(r=>r.placa),'Todas as placas/cartões');
+  choices('detailMonth',uniq(mkey),'Todos os meses');
+  for(const option of $('#detailMonth').options){if(option.value)option.textContent=fmtMonth(option.value)}
+}
+function getTableRows(){
+  const month=$('#detailMonth').value,category=$('#detailCategory').value,origin=$('#detailOrigin').value;
+  const type=$('#detailType').value,plate=$('#detailPlate').value;
+  const search=$('#search').value.trim().toLocaleLowerCase('pt-BR');
+  return shown.filter(r=>{
+    if(month&&mkey(r)!==month)return false;
+    if(category&&r.categoria!==category)return false;
+    if(origin&&r.origem!==origin)return false;
+    if(type&&r.atendimento!==type)return false;
+    if(plate&&r.placa!==plate)return false;
+    if(search&&!([r.data,fmtDate(r.data),r.categoria,r.descricao,r.placa,r.atendimento,r.origem,r.fornecedor,r.valor].join(' ').toLocaleLowerCase('pt-BR').includes(search)))return false;
+    return true;
+  });
+}
 function renderTable(){
-  const sorted=[...shown].sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
+  refreshDetailChoices();
+  const sorted=getTableRows().sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
   const viewport=$('.table-scroll');
   $('#detailTable tbody').innerHTML=sorted.length?sorted.map((r,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
@@ -437,7 +474,7 @@ function renderTable(){
     <td>${esc(r.origem)||'—'}${r.origem==='MANUAL'?'<span class="badge-manual">MANUAL</span>':''}</td>
     <td>${brl(r.valor)}</td>
   </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
-  $('#detailCount').textContent=num(shown.length)+' registros';
+  $('#detailCount').textContent=num(sorted.length)+' de '+num(shown.length)+' registros';
   viewport.scrollTop=0;
 }
 
@@ -495,8 +532,13 @@ $('#btnFora').addEventListener('click',()=>{
 });
 
 $('#apply').addEventListener('click',apply);
-$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
-$('#search').addEventListener('keydown',e=>{if(e.key==='Enter')apply()});
+$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth'])$('#'+id)&&($('##'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
+for(const id of ['detailMonth','detailCategory','detailOrigin','detailType','detailPlate'])$('#'+id).addEventListener('change',renderTable);
+$('#search').addEventListener('input',renderTable);
+$('#tableClear').addEventListener('click',()=>{
+  for(const id of ['detailMonth','detailCategory','detailOrigin','detailType','detailPlate','search'])$('#'+id).value='';
+  renderTable();
+});
 $('#printButton').addEventListener('click',()=>window.print());
 $('#importButton').addEventListener('click',()=>showDlg('importDialog'));
 $('#manualButton').addEventListener('click',()=>showDlg('manualDialog'));
@@ -557,7 +599,7 @@ for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('cli
 
 $('#csv').addEventListener('click',()=>{
   const hdr=['Data','Categoria','Descrição','Tipo de atendimento','Origem','Placa/Cartão','Situação','Valor (R$)'];
-  const rows=shown.map(r=>[r.data,r.categoria,r.descricao,r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',',')]);
+  const rows=getTableRows().map(r=>[r.data,r.categoria,r.descricao,r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',',')]);
   const csv='﻿'+[hdr,...rows].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:'Despesas_Nucleo_Service.csv'});
   document.body.append(a);a.click();a.remove();
