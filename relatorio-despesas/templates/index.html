@@ -279,7 +279,7 @@ Chart.defaults.borderColor='#1b2840';
 Chart.defaults.font.family='Inter,Segoe UI,Arial,sans-serif';
 Chart.defaults.font.size=13;
 
-let all=[],shown=[],page=1,pageSize=10,_autoSynced=false,_segFilter='';
+let all=[],shown=[],page=1,pageSize=10,_autoSynced=false,_segFilter='',_syncInFlight=false;
 let cGroups,cOrigins,cMonthly,cCats;
 
 function mkChart(id,cfg){return new Chart(document.getElementById(id),cfg)}
@@ -551,18 +551,29 @@ $('#manualForm').addEventListener('submit',async e=>{
   finally{btn.disabled=false;btn.textContent='Salvar lançamento';}
 });
 
-async function syncSheets(){
+async function syncSheets(silent=false){
+  if(_syncInFlight)return;
+  _syncInFlight=true;
   const btn=$('#sheetsButton');btn.disabled=true;btn.textContent='Sincronizando…';
-  $('#statusBar').textContent='☁ Buscando dados do Google Sheets…';
+  if(!silent)$('#statusBar').textContent='☁ Buscando dados do Google Sheets…';
   try{
     const res=await reqJSON('/api/sync-sheets',{method:'POST'});
     const r=res.resultado;
-    if(r.novas>0){notification('✓ '+r.novas+' novo(s) importado(s) do Google Sheets.');_autoSynced=true;await reload();}
-    else{$('#statusBar').textContent='Banco conectado · '+num(all.length)+' registros · Google Sheets atualizado';notification('✓ Google Sheets sincronizado — sem novidades.');}
-  }catch(e){$('#statusBar').textContent='Erro Google Sheets: '+e.message;notification('Erro: '+e.message,'error');}
-  finally{btn.disabled=false;btn.textContent='☁ Google Sheets';}
+    if(r.novas>0 || r.atualizadas>0){
+      notification('✓ '+r.novas+' novo(s) e '+r.atualizadas+' atualizado(s) do Google Sheets.');
+      _autoSynced=true;
+      await reload();
+    }else{
+      $('#statusBar').textContent='Banco conectado · '+num(all.length)+' registros · Google Sheets atualizado';
+      if(!silent)notification('✓ Google Sheets sincronizado — sem novidades.');
+    }
+  }catch(e){$('#statusBar').textContent='Erro Google Sheets: '+e.message;if(!silent)notification('Erro: '+e.message,'error');}
+  finally{btn.disabled=false;btn.textContent='☁ Google Sheets';_syncInFlight=false;}
 }
 
+// Atualiza o painel ao abrir e a cada 15 minutos enquanto esta página está visível.
+$('#sheetsButton').addEventListener('click',()=>syncSheets(false));
+setInterval(()=>{if(document.visibilityState==='visible')syncSheets(true);},15*60*1000);
 initCharts();
 reload();
 </script>
