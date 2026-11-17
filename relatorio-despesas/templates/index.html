@@ -59,7 +59,7 @@ button,input,select{font:inherit;cursor:pointer}button:disabled{opacity:.5;curso
 .tbtn.primary{background:#1a3a7a;border-color:#2050a0;color:#89b8ff}
 .tsearch{background:#0d1626;border:1px solid #1e3050;border-radius:8px;padding:7px 11px;color:var(--text);width:170px;outline:none}
 .tsearch:focus{border-color:var(--accent)}
-.table-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--border);max-height:none;overflow-y:visible}
+.table-scroll{overflow:auto;border-radius:10px;border:1px solid var(--border);height:380px;max-height:380px;overscroll-behavior:contain;scrollbar-gutter:stable}
 table{border-collapse:collapse;width:100%;min-width:700px}
 thead th{background:#0a1020;color:#6a90c0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:13px 14px;text-align:left;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid var(--border)}
 thead th:last-child{text-align:right}
@@ -230,7 +230,6 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
       <div class="card-title" style="margin:0">Mais detalhes — clique nos gráficos para filtrar os lançamentos</div>
       <div class="tbl-actions">
         <span style="font-size:11px;color:var(--muted)" id="detailCount">0 registros</span>
-        <button class="tbtn primary" type="button" id="toggleAllRows" aria-pressed="true">Ver 10 por página</button>
         <button class="tbtn" id="csv">↓ CSV</button>
         <input class="tsearch" id="search" placeholder="Buscar…" autocomplete="off">
       </div>
@@ -243,11 +242,6 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
         </tr></thead>
         <tbody></tbody>
       </table>
-    </div>
-    <div class="pager">
-      <button id="prev">‹</button>
-      <span id="pageInfo">—</span>
-      <button id="next">›</button>
     </div>
   </div>
 
@@ -328,7 +322,7 @@ Chart.defaults.borderColor='#1b2840';
 Chart.defaults.font.family='Inter,Segoe UI,Arial,sans-serif';
 Chart.defaults.font.size=13;
 
-let all=[],shown=[],page=1,pageSize=10,showAllRows=true,_autoSynced=false,_segFilter='',_syncInFlight=false;
+let all=[],shown=[],_autoSynced=false,_segFilter='',_syncInFlight=false;
 let cGroups,cOrigins,cMonthly,cCats;
 
 function mkChart(id,cfg){return new Chart(document.getElementById(id),cfg)}
@@ -413,7 +407,7 @@ function apply(){
     if(f.search){const q=f.search.toLocaleLowerCase('pt-BR');if(![r.categoria,r.descricao,r.placa,r.atendimento,r.origem,r.fornecedor,r.id].join(' ').toLocaleLowerCase('pt-BR').includes(q))return false;}
     return true;
   });
-  page=1;render();
+  render();
 }
 
 function render(){
@@ -432,11 +426,9 @@ function render(){
 
 function renderTable(){
   const sorted=[...shown].sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
-  const start=showAllRows?0:(page-1)*pageSize;
-  const slice=showAllRows?sorted:sorted.slice(start,start+pageSize);
-  const pages=Math.max(1,Math.ceil(shown.length/pageSize));
-  $('#detailTable tbody').innerHTML=slice.length?slice.map((r,i)=>`<tr>
-    <td style="color:var(--muted)">${start+i+1}</td>
+  const viewport=$('.table-scroll');
+  $('#detailTable tbody').innerHTML=sorted.length?sorted.map((r,i)=>`<tr>
+    <td style="color:var(--muted)">${i+1}</td>
     <td>${esc(fmtDate(r.data))}</td>
     <td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${CAT_COLORS[r.categoria]||'#4a7cb8'};margin-right:6px"></span>${esc(r.categoria)}</td>
     <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(r.descricao)}">${esc(r.descricao)}</td>
@@ -446,11 +438,7 @@ function renderTable(){
     <td>${brl(r.valor)}</td>
   </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
   $('#detailCount').textContent=num(shown.length)+' registros';
-  $('#toggleAllRows').textContent=showAllRows?'Ver 10 por página':'Ver todos os dados';
-  $('#toggleAllRows').setAttribute('aria-pressed',String(showAllRows));
-  $('.pager').hidden=showAllRows;
-  $('#pageInfo').textContent=shown.length===0?'0 registros':`${start+1}-${Math.min(start+pageSize,shown.length)}/${num(shown.length)}`;
-  $('#prev').disabled=showAllRows||page<=1;$('#next').disabled=showAllRows||page>=pages;
+  viewport.scrollTop=0;
 }
 
 function load(data,live){
@@ -497,21 +485,18 @@ $('#btnGarantia').addEventListener('click',()=>{
   _segFilter=_segFilter==='Garantia'?'':('Garantia');
   $('#btnGarantia').classList.toggle('active',_segFilter==='Garantia');
   $('#btnFora').classList.remove('active');
-  page=1;apply();
+  apply();
 });
 $('#btnFora').addEventListener('click',()=>{
   _segFilter=_segFilter==='Fora de Garantia'?'':('Fora de Garantia');
   $('#btnFora').classList.toggle('active',_segFilter==='Fora de Garantia');
   $('#btnGarantia').classList.remove('active');
-  page=1;apply();
+  apply();
 });
 
 $('#apply').addEventListener('click',apply);
-$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');page=1;apply()});
+$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
 $('#search').addEventListener('keydown',e=>{if(e.key==='Enter')apply()});
-$('#toggleAllRows').addEventListener('click',()=>{showAllRows=!showAllRows;page=1;renderTable()});
-$('#prev').addEventListener('click',()=>{page=Math.max(1,page-1);renderTable()});
-$('#next').addEventListener('click',()=>{page++;renderTable()});
 $('#printButton').addEventListener('click',()=>window.print());
 $('#importButton').addEventListener('click',()=>showDlg('importDialog'));
 $('#manualButton').addEventListener('click',()=>showDlg('manualDialog'));
