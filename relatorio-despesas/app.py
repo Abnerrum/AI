@@ -1,7 +1,7 @@
 """Núcleo Service | Relatório web de despesas.
 
-Dados persistidos em PostgreSQL (produção) ou SQLite (desenvolvimento).
-Carregamento por XLSX, CSV ou cadastro manual; nenhum dado privado no repositório.
+Dados persistidos em MySQL, PostgreSQL ou SQLite; planilhas XLSX originais também
+são guardadas no banco junto com as despesas importadas.
 """
 import csv
 import hashlib
@@ -17,21 +17,33 @@ from pathlib import Path
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from openpyxl import load_workbook
-from sqlalchemy import BigInteger, Date, DateTime, Integer, String, Text, create_engine, select, func
+from sqlalchemy import BigInteger, Date, DateTime, Integer, LargeBinary, String, Text, create_engine, select, func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.dialects.mysql import LONGBLOB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from urllib.parse import quote
+import urllib.request as _url_req
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 ROOT = Path(__file__).parent
+SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv"
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'dados' / 'despesas.db'}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
 elif DATABASE_URL.startswith("postgresql://"):
     DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("mysql://"):
+    DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
 
 if DATABASE_URL.startswith("sqlite:///"):
     Path(DATABASE_URL.removeprefix("sqlite:///" )).parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +68,28 @@ class Despesa(Base):
     valor_centavos: Mapped[int] = mapped_column(BigInteger, nullable=False)
     situacao: Mapped[str] = mapped_column(String(100), default="")
     id_origem: Mapped[str] = mapped_column(String(240), default="")
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class FonteDados(Base):
+    __tablename__ = "fontes_dados"
+    pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(255), nullable=False)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    login: Mapped[str] = mapped_column(String(255), default="")
+    senha: Mapped[str] = mapped_column(String(255), default="")
+    ativo: Mapped[int] = mapped_column(Integer, default=1)
+    ultima_sync: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+class ArquivoExcel(Base):
+    __tablename__ = "arquivos_excel"
+    pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    nome: Mapped[str] = mapped_column(String(255), nullable=False)
+    sha256: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    tamanho_bytes: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    conteudo: Mapped[bytes] = mapped_column(
+        LargeBinary().with_variant(LONGBLOB(), "mysql"), nullable=False
+    )
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
 Base.metadata.create_all(engine)
@@ -213,7 +247,7 @@ def parse_uploaded_file(file_name, stream):
     raise ValueError("Envie um arquivo .xlsx ou .csv.")
 
 
-def import_records(file_name, stream):
+def import_records(file_name, stream, original_file=None):
     rows, mapping, workbook = parse_uploaded_file(file_name, stream)
     candidates, errors, ignored = [], [], 0
     try:
@@ -234,13 +268,46 @@ def import_records(file_name, stream):
         if not candidates:
             raise ValueError("Nenhuma despesa válida encontrada. " + (errors[0] if errors else "Verifique Status BI e valores."))
         unique = {x["chave"]: x for x in candidates}
+        original_digest = hashlib.sha256(original_file).hexdigest() if original_file is not None else None
+        original_name = file_name.replace("\\", "/").rsplit("/", 1)[-1][:255]
+        original_already_saved = False
         with SessionLocal.begin() as db:
             for i in range(0, len(unique), 500):
                 chunk = list(unique.values())[i:i+500]
-                stmt = pg_insert(Despesa) if engine.dialect.name == "postgresql" else sqlite_insert(Despesa)
-                db.execute(stmt.values(chunk).on_conflict_do_nothing(index_elements=["chave"]))
+                if engine.dialect.name == "postgresql":
+                    stmt = pg_insert(Despesa).values(chunk).on_conflict_do_nothing(index_elements=["chave"])
+                elif engine.dialect.name == "sqlite":
+                    stmt = sqlite_insert(Despesa).values(chunk).on_conflict_do_nothing(index_elements=["chave"])
+                elif engine.dialect.name == "mysql":
+                    stmt = mysql_insert(Despesa).values(chunk)
+                    stmt = stmt.on_duplicate_key_update(chave=stmt.inserted.chave)
+                else:
+                    raise RuntimeError(f"Banco de dados não suportado: {engine.dialect.name}")
+                db.execute(stmt)
+            if original_file is not None:
+                original_already_saved = db.scalar(
+                    select(ArquivoExcel.pk).where(ArquivoExcel.sha256 == original_digest)
+                ) is not None
+                values = {
+                    "nome": original_name,
+                    "sha256": original_digest,
+                    "tamanho_bytes": len(original_file),
+                    "conteudo": original_file,
+                }
+                if engine.dialect.name == "postgresql":
+                    stmt = pg_insert(ArquivoExcel).values(**values).on_conflict_do_nothing(index_elements=["sha256"])
+                elif engine.dialect.name == "sqlite":
+                    stmt = sqlite_insert(ArquivoExcel).values(**values).on_conflict_do_nothing(index_elements=["sha256"])
+                elif engine.dialect.name == "mysql":
+                    stmt = mysql_insert(ArquivoExcel).values(**values)
+                    stmt = stmt.on_duplicate_key_update(sha256=stmt.inserted.sha256)
+                else:
+                    raise RuntimeError(f"Banco de dados não suportado: {engine.dialect.name}")
+                db.execute(stmt)
         return {"analisadas": len(candidates), "duplicadas_na_planilha": len(candidates) - len(unique),
-                "ignoradas": ignored, "erros_amostra": errors, "total_no_banco": count_records()}
+                "ignoradas": ignored, "erros_amostra": errors, "total_no_banco": count_records(),
+                "arquivo_original_guardado": original_file is not None,
+                "arquivo_original_ja_existia": original_already_saved}
     finally:
         if workbook:
             workbook.close()
@@ -270,7 +337,7 @@ def require_auth(request: Request):
 def require_persistent_storage():
     # Render gratuito tem disco efêmero. Nunca permita uploads persistidos em SQLite online.
     if os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite":
-        raise HTTPException(503, "Configure DATABASE_URL com PostgreSQL persistente antes de adicionar despesas na hospedagem.")
+        raise HTTPException(503, "Configure DATABASE_URL com MySQL ou PostgreSQL persistente antes de adicionar despesas na hospedagem.")
 
 
 def require_csrf(request: Request, body=None):
@@ -360,17 +427,47 @@ async def upload(request: Request):
         raise HTTPException(400, "Selecione um arquivo Excel ou CSV.")
     if Path(file.filename).suffix.lower() not in (".xlsx", ".csv"):
         raise HTTPException(400, "Somente .xlsx ou .csv são aceitos.")
-    if getattr(file, "size", 0) and file.size > 20 * 1024 * 1024:
-        raise HTTPException(413, "Arquivo muito grande: limite de 20 MB.")
-    before = count_records()
     try:
-        result = import_records(file.filename, file.file)
+        content = await file.read(20 * 1024 * 1024 + 1)
+        if len(content) > 20 * 1024 * 1024:
+            raise HTTPException(413, "Arquivo muito grande: limite de 20 MB.")
+        before = count_records()
+        result = import_records(
+            file.filename,
+            io.BytesIO(content),
+            original_file=content if Path(file.filename).suffix.lower() == ".xlsx" else None,
+        )
     except ValueError as err:
         raise HTTPException(400, str(err))
     finally:
         await file.close()
     result["novas"] = result["total_no_banco"] - before
     return {"resultado": result}
+
+@app.get("/api/excel-files")
+def list_excel_files(request: Request):
+    require_auth(request)
+    with SessionLocal() as db:
+        files = db.scalars(select(ArquivoExcel).order_by(ArquivoExcel.criado_em.desc())).all()
+        return {"arquivos": [
+            {"id": item.pk, "nome": item.nome, "tamanho_bytes": item.tamanho_bytes,
+             "criado_em": item.criado_em.isoformat() if item.criado_em else None}
+            for item in files
+        ]}
+
+@app.get("/api/excel-files/{file_id}")
+def download_excel_file(file_id: int, request: Request):
+    require_auth(request)
+    with SessionLocal() as db:
+        item = db.get(ArquivoExcel, file_id)
+        if item is None:
+            raise HTTPException(404, "Arquivo Excel não encontrado.")
+        name = quote(item.nome)
+        return Response(
+            content=item.conteudo,
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f"attachment; filename*=UTF-8''{name}"},
+        )
 
 
 @app.post("/api/manual", status_code=201)
@@ -401,6 +498,114 @@ async def create_manual(request: Request):
             return {"registro": serialize_expense(novo)}
     except ValueError as err:
         raise HTTPException(400, str(err))
+
+
+def serialize_fonte(f: FonteDados):
+    return {
+        "pk": f.pk, "nome": f.nome, "url": f.url, "login": f.login,
+        "tem_senha": bool(f.senha), "ativo": bool(f.ativo),
+        "ultima_sync": f.ultima_sync.isoformat() if f.ultima_sync else None,
+        "criado_em": f.criado_em.isoformat() if f.criado_em else None,
+    }
+
+
+@app.get("/api/fontes")
+def list_fontes(request: Request):
+    require_auth(request)
+    with SessionLocal() as db:
+        rows = db.scalars(select(FonteDados).order_by(FonteDados.criado_em.desc())).all()
+        return {"fontes": [serialize_fonte(f) for f in rows]}
+
+
+@app.post("/api/fontes", status_code=201)
+async def create_fonte(request: Request):
+    require_auth(request)
+    require_csrf(request)
+    payload = await request.json()
+    nome = str(payload.get("nome") or "").strip()[:255]
+    url = str(payload.get("url") or "").strip()[:2048]
+    login = str(payload.get("login") or "").strip()[:255]
+    senha = str(payload.get("senha") or "").strip()[:255]
+    if not nome or not url:
+        raise HTTPException(400, "Nome e URL são obrigatórios.")
+    fonte = FonteDados(nome=nome, url=url, login=login, senha=senha)
+    with SessionLocal.begin() as db:
+        db.add(fonte)
+        db.flush()
+        return {"fonte": serialize_fonte(fonte)}
+
+
+@app.delete("/api/fontes/{pk}")
+async def delete_fonte(pk: int, request: Request):
+    require_auth(request)
+    require_csrf(request)
+    with SessionLocal.begin() as db:
+        f = db.get(FonteDados, pk)
+        if not f:
+            raise HTTPException(404, "Fonte não encontrada.")
+        db.delete(f)
+    return {"ok": True}
+
+
+@app.post("/api/fontes/{pk}/sync")
+async def sync_fonte_pk(pk: int, request: Request):
+    require_auth(request)
+    require_csrf(request)
+    require_persistent_storage()
+    with SessionLocal() as db:
+        fonte = db.get(FonteDados, pk)
+        if not fonte:
+            raise HTTPException(404, "Fonte não encontrada.")
+        url, login, senha, nome = fonte.url, fonte.login, fonte.senha, fonte.nome
+    try:
+        import httpx
+        auth = (login, senha) if login and senha else None
+        async with httpx.AsyncClient(follow_redirects=True, timeout=30) as client:
+            resp = await client.get(url, auth=auth)
+            resp.raise_for_status()
+            content = resp.content
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(413, "Arquivo muito grande: limite de 10 MB.")
+        fname = url.rstrip("/").split("/")[-1].split("?")[0] or "fonte.csv"
+        if not fname.lower().endswith((".csv", ".xlsx")):
+            fname = fname + ".csv"
+        before = count_records()
+        result = import_records(fname, io.BytesIO(content))
+        result["novas"] = result["total_no_banco"] - before
+        with SessionLocal.begin() as db:
+            f = db.get(FonteDados, pk)
+            if f:
+                f.ultima_sync = datetime.now(timezone.utc)
+        return {"resultado": result, "fonte": nome}
+    except HTTPException:
+        raise
+    except ValueError as err:
+        raise HTTPException(400, str(err))
+    except Exception as err:
+        raise HTTPException(502, f"Erro ao buscar '{nome}': {str(err)[:200]}")
+
+
+@app.post("/api/sync-sheets")
+async def sync_sheets(request: Request):
+    require_auth(request)
+    require_csrf(request)
+    require_persistent_storage()
+    try:
+        req = _url_req.Request(SHEETS_CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
+        with _url_req.urlopen(req, timeout=30) as resp:
+            content = resp.read(10 * 1024 * 1024 + 1)
+        if len(content) > 10 * 1024 * 1024:
+            raise HTTPException(413, "Planilha muito grande: limite de 10 MB.")
+        before = count_records()
+        result = import_records("google-sheets.csv", io.BytesIO(content))
+        result["novas"] = result["total_no_banco"] - before
+        return {"resultado": result}
+    except HTTPException:
+        raise
+    except ValueError as err:
+        raise HTTPException(400, str(err))
+    except Exception as err:
+        raise HTTPException(502, f"Erro ao buscar planilha Google Sheets: {str(err)[:200]}")
 
 
 if __name__ == "__main__":

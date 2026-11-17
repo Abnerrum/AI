@@ -5,6 +5,7 @@ Sistema web privado de relatórios com upload Excel/CSV, lançamento manual e da
 ## Recursos
 - Login administrativo (não deixa despesas expostas sem autenticação).
 - Importar Excel `.xlsx` da planilha original, preferindo `BI_GRAFICOS`, ou CSV.
+- Guardar o arquivo `.xlsx` original completo no banco, além das despesas importadas.
 - Não duplica registros já importados. Ignora `Status BI` diferente de `Incluir`.
 - Cadastrar despesa manualmente; os números são armazenados no banco.
 - Filtrar por categoria, Garantia/Fora de Garantia, origem, placa, situação, período e texto.
@@ -25,18 +26,18 @@ Você pode executar `iniciar_windows.bat` (duplo clique). O script instala depen
 7. Acesse `http://127.0.0.1:5000` e entre com usuário `admin`.
 8. Clique **Importar Excel / CSV** e selecione o arquivo original (aba `BI_GRAFICOS`).
 
-O banco local é salvo em `dados/despesas.db`, que deve ser protegido e não está no Git.
+O banco local é salvo em `dados/despesas.db`, que deve ser protegido e não está no Git. Na hospedagem, configure `DATABASE_URL` para o PostgreSQL persistente já existente no Render. MySQL também é suportado.
 
 ## Hospedar no Render
 1. Suba somente o **código** para um repositório GitHub. **Nunca suba arquivos `.xlsx`, CSV, JSON com dados financeiros nem o banco `.db`**.
-2. Crie PostgreSQL no Render para armazenar as despesas de forma persistente.
+2. Use o PostgreSQL já existente na sua conta Render (`nucleo-relatorio-despesas-db`). A instância gratuita expira em 12/12/2026.
 3. Crie um Web Service Python apontando para o repositório. Comandos:
    - Build: `pip install -r requirements.txt`
    - Start: `uvicorn app:app --host 0.0.0.0 --port $PORT`
-4. Variáveis de ambiente: `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SECRET_KEY`, `COOKIE_SECURE=1` e `DATABASE_URL` (PostgreSQL).
-5. Abra o link `https://SEU-SERVICO.onrender.com` e importe seu Excel após fazer login.
+4. Configure `ADMIN_USERNAME`, `ADMIN_PASSWORD`, `SECRET_KEY`, `COOKIE_SECURE=1` e `DATABASE_URL` com o endereço interno do PostgreSQL no Render. Configure credenciais somente no painel do serviço.
+5. Abra o link `https://SEU-SERVICO.onrender.com` e importe seu Excel após fazer login. As despesas e o `.xlsx` original serão gravados juntos no MySQL. CSVs importam apenas as despesas.
 
-⚠️ Serviço Render gratuito pode hibernar após 15 minutos sem acesso. O PostgreSQL gratuito **expira em 30 dias** e não oferece backups. Para dados financeiros de produção, use um banco persistente com backups e política de acesso adequada. Sem `DATABASE_URL` persistente, dados do SQLite em hospedagem efêmera podem ser perdidos.
+⚠️ Serviço Render gratuito pode hibernar após 15 minutos sem acesso. Use um PostgreSQL persistente com backups para dados financeiros de produção. Sem `DATABASE_URL` persistente, dados do SQLite em hospedagem efêmera podem ser perdidos. O banco PostgreSQL gratuito expira e precisará de upgrade ou migração para uso prolongado.
 
 ## Layout de entrada
 São obrigatórias as colunas `Data`, `Categoria`, `Valor (R$)`. Recomendadas: `Descrição`, `Placa/Cartão`, `Tipo de atendimento`, `Origem`, `Fornecedor/Posto`, `Situação`, `ID origem`, `Status BI`. O arquivo completo pode ter outras abas, que não serão alteradas. O importador prioriza `BI_GRAFICOS`.

@@ -1,10 +1,12 @@
-# Blueprint alternativo para instalação pelo painel Render.
-# Guarde credenciais no painel Render, nunca no GitHub.
+# Núcleo Service — deploy no Render (Blueprint)
+# Banco PostgreSQL já existente no workspace: não criamos outro.
 services:
   - type: web
     name: nucleo-relatorio-despesas
     runtime: python
+    rootDir: relatorio-despesas
     plan: free
+    region: virginia
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
     healthCheckPath: /health
@@ -19,8 +21,5 @@ services:
         value: '1'
       - key: DATABASE_URL
         fromDatabase:
-          name: nucleo-despesas-db
+          name: nucleo-relatorio-despesas-db
           property: connectionString
-databases:
-  - name: nucleo-despesas-db
-    plan: free

@@ -1,43 +1,32 @@
-# Publicação no Render — Núcleo Service / Despesas
+# Hospedar BI Financeiro da Núcleo Service no Render
 
-O código foi enviado à ramificação isolada do GitHub:
-**https://github.com/Abnerrum/AI/tree/deploy/nucleo-despesas-web/relatorio-despesas**
+## Preparação
+Este pacote contém somente código e arquivos-modelo. **Não** inclui `dados/despesas.db`, arquivos reais de despesas ou `.env`.
 
-A ramificação `main` do repositório AI não foi alterada.
+O GitHub já tem o repositório `Abnerrum/AI` na branch `deploy/nucleo-despesas-web`. A versão nessa branch precisa ser substituída pelo **código deste pacote** (pasta `relatorio-despesas/`).
 
-## Recursos
-- PostgreSQL gratuito criado no Render: https://dashboard.render.com/d/dpg-dbqthaijnfac73ap5e10-a
-- Banco de dados: `nucleo_relatorio_despesas_db` — região Virginia, gratuito (expira em 12/12/2026).
-- **Web Service ainda não publicado.** Conclua no painel Render.
+A conta Render possui o PostgreSQL `nucleo-relatorio-despesas-db`, na região Virginia. Seu plano grátis vence em 12/12/2026; faça backup ou contrate armazenamento durável antes de usar em produção.
 
-## Publicar o Web Service
+## Publicar usando Blueprint
+1. Atualize no GitHub a branch `deploy/nucleo-despesas-web` com o conteúdo deste pacote em `relatorio-despesas/`, sem enviar o banco local e as credenciais.
+2. No Render, escolha **New > Blueprint** e selecione `Abnerrum/AI`, branch `deploy/nucleo-despesas-web`, Root Directory `relatorio-despesas` se disponível.
+3. Confira se `render.yaml` detecta o serviço e a referência ao banco PostgreSQL já existente. **Não crie um banco adicional**.
+4. Informe `ADMIN_PASSWORD` forte. `SECRET_KEY` é gerada automaticamente, `COOKIE_SECURE=1` e `DATABASE_URL` vem do banco existente.
+5. Confirme o deploy e verifique `/health` e a página `/login`.
 
-1. Entre em https://dashboard.render.com/web/new e escolha **Build and deploy from a Git repository**.
-2. Selecione o repositório **Abnerrum/AI**.
-3. Nome: `nucleo-despesas-abner` (ou nome livre).
-4. Branch: `deploy/nucleo-despesas-web`.
-5. Root Directory: `relatorio-despesas`.
-6. Runtime: **Python**, Plan: **Free**, Region: **Virginia**.
-7. Build Command: `pip install -r requirements.txt`.
-8. Start Command: `uvicorn app:app --host 0.0.0.0 --port $PORT`.
-9. Environment Variables (defina apenas no Render, não no GitHub):
+## Publicar criando Web Service manualmente
+1. New > Web Service > Build and deploy from a Git repository.
+2. Repository: `Abnerrum/AI`. Branch: `deploy/nucleo-despesas-web`. Root Directory: `relatorio-despesas`.
+3. Runtime Python; Region Virginia; Plan Free.
+4. Build: `pip install -r requirements.txt`.
+5. Start: `uvicorn app:app --host 0.0.0.0 --port $PORT`.
+6. Set `ADMIN_USERNAME=admin`, `ADMIN_PASSWORD` forte, `SECRET_KEY` aleatória longa, `COOKIE_SECURE=1` e `DATABASE_URL` com a **Internal Database URL** do banco PostgreSQL existente. NÃO copie a URL no GitHub nem em chat público.
+7. Health Check Path: `/health`. Salve e implante.
 
-| Variável | Valor |
-| --- | --- |
-| `ADMIN_USERNAME` | `admin` |
-| `ADMIN_PASSWORD` | Sua senha forte exclusiva |
-| `SECRET_KEY` | Chave aleatória longa (gere com Python `import secrets; print(secrets.token_urlsafe(48))`) |
-| `COOKIE_SECURE` | `1` |
-| `DATABASE_URL` | **Internal Database URL** copiada da página do PostgreSQL acima (contém senha; mantenha privada). |
+## Dados
+O Render não importa os dados automaticamente. Após login, use **Importar Excel/CSV** para carregar a planilha autorizada. Se precisar manter campos não importáveis que estavam no SQLite, faça uma migração/backup antes.
 
-10. Health Check Path: `/health`.
-11. Clique em **Create Web Service** e confirme o deploy com status `Live`.
-12. Entre na URL `.onrender.com`, faça login com `admin`, clique **Importar Excel / CSV** e envie o arquivo Excel original.
-
-O site **bloqueia importações e cadastros na hospedagem se o PostgreSQL não estiver configurado**, para evitar perda de dados no disco temporário do Render.
-
-## Cuidados
-- O PostgreSQL Render **Free expira após 30 dias** (no seu caso, 12/12/2026); faça backup e migre antes do vencimento.
-- Para utilização financeira continuada, use PostgreSQL persistente com backups e controle de acesso adequado.
-- Não adicione `.xlsx`, `.csv` financeiros ou `.db` ao GitHub; só o código deve estar no repositório.
-- A página de login protege o painel, mas não substitui gestão de usuários e auditoria de produção.
+## Segurança
+- Sistema tem senha administrativa e cookie HTTPS. Use senha única forte e não exponha o banco ou dados de clientes.
+- Configure backups. O banco grátis Render expira e não serve como armazenamento definitivo sem upgrade.
+- Evite dados de produção em demonstrações públicas.

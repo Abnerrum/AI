@@ -1,2 +1,119 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Entrar · Núcleo Service</title>
-<style>*{box-sizing:border-box}body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:0;background:radial-gradient(ellipse at 70% 0%,#2d4c95,#111c36 58%,#0b1221);min-height:100vh;color:#13223c;display:flex;align-items:center;justify-content:center;padding:20px}.shell{width:100%;max-width:430px}.brand{color:#fff;text-align:center;margin-bottom:25px}.brand h1{font-size:30px;margin:8px 0}.brand p{color:#a7b8d9;font-size:14px}.panel{background:#fff;padding:34px;border-radius:20px;box-shadow:0 20px 80px #0005}label{display:block;color:#566783;font-size:12px;text-transform:uppercase;font-weight:750;letter-spacing:.08em;margin:16px 0 8px}input{display:block;width:100%;padding:15px;border-radius:12px;border:1px solid #ced9eb;font-size:16px;outline-color:#336ad6}button{margin-top:25px;border:0;border-radius:12px;width:100%;background:#2563eb;color:#fff;font-weight:800;padding:16px;font-size:15px;cursor:pointer}.error{padding:12px;border-radius:10px;background:#fff0f0;color:#aa2020;font-size:13px}.foot{color:#c1cce0;text-align:center;font-size:12px;margin-top:20px}</style></head><body><div class="shell"><div class="brand"><div style="font-size:31px">▣</div><h1>Núcleo Service</h1><p>BI Financeiro · Ambiente seguro de Despesas</p></div><div class="panel"><h2 style="margin:0">Acesso administrativo</h2><p style="color:#718096;font-size:13px;margin:8px 0 20px">Entre para visualizar e adicionar dados financeiros.</p>{% if error %}<p class="error" role="alert">{{error}}</p>{% endif %}<form method="post"><label for="username">Usuário</label><input name="username" id="username" autocomplete="username" required autofocus value="admin"><label for="password">Senha</label><input id="password" name="password" type="password" autocomplete="current-password" required><button type="submit">Entrar no painel</button></form></div><div class="foot">Relatórios privados · Seus dados não ficam públicos</div></div></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar · Núcleo Service</title>
+<style>
+*{box-sizing:border-box}
+body{font-family:Inter,Segoe UI,Arial,sans-serif;margin:0;min-height:100vh;color:#13223c;display:flex;align-items:center;justify-content:center;padding:20px;background:#0b1221;overflow:hidden;position:relative}
+#bg{position:fixed;inset:0;width:100%;height:100%;z-index:0}
+.orb{position:fixed;border-radius:50%;filter:blur(90px);opacity:.32;pointer-events:none;z-index:0;animation:orbFloat 14s ease-in-out infinite}
+.o1{width:420px;height:420px;background:radial-gradient(circle,#1e4fc2,#0d2060);top:-120px;right:-120px;animation-delay:0s}
+.o2{width:320px;height:320px;background:radial-gradient(circle,#1428A0,#071640);bottom:-90px;left:-90px;animation-delay:-6s}
+.o3{width:260px;height:260px;background:radial-gradient(circle,#2d4fa0,#111c3a);top:45%;left:25%;animation-delay:-3.5s}
+@keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(35px,-25px) scale(1.07)}66%{transform:translate(-22px,28px) scale(.94)}}
+.shell{width:100%;max-width:430px;position:relative;z-index:1}
+.brand{color:#fff;text-align:center;margin-bottom:25px}
+.brand h1{font-size:30px;margin:8px 0}
+.brand p{color:#a7b8d9;font-size:14px}
+.panel{background:rgba(255,255,255,.97);padding:34px;border-radius:20px;box-shadow:0 24px 90px #00000080,0 0 0 1px rgba(255,255,255,.1);backdrop-filter:blur(14px)}
+label{display:block;color:#566783;font-size:12px;text-transform:uppercase;font-weight:750;letter-spacing:.08em;margin:16px 0 8px}
+input{display:block;width:100%;padding:15px;border-radius:12px;border:1px solid #ced9eb;font-size:16px;outline:none;transition:border-color .25s,box-shadow .25s,background .25s}
+input:focus{border-color:#2563eb;box-shadow:0 0 0 4px rgba(37,99,235,.18);background:#f8fbff}
+button{margin-top:25px;border:0;border-radius:12px;width:100%;background:linear-gradient(135deg,#2563eb,#1a4fd8);color:#fff;font-weight:800;padding:16px;font-size:15px;cursor:pointer;position:relative;overflow:hidden;transition:transform .2s,box-shadow .25s;box-shadow:0 5px 22px rgba(37,99,235,.5)}
+button:hover{transform:translateY(-2px);box-shadow:0 10px 34px rgba(37,99,235,.65)}
+button:active{transform:translateY(1px)}
+button::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.28) 50%,transparent 100%);transform:translateX(-110%);transition:none}
+button:hover::after{animation:shimmer .65s ease forwards}
+@keyframes shimmer{from{transform:translateX(-110%)}to{transform:translateX(110%)}}
+.error{padding:12px;border-radius:10px;background:#fff0f0;color:#aa2020;font-size:13px}
+.foot{color:#c1cce0;text-align:center;font-size:12px;margin-top:20px}
+.a1{animation:slideUp 1s cubic-bezier(.2,.8,.2,1) both}
+.a2{animation:slideUp 1s cubic-bezier(.2,.8,.2,1) .28s both}
+.a3{animation:slideUp .9s cubic-bezier(.2,.8,.2,1) .48s both}
+.a4{animation:slideUp .95s cubic-bezier(.2,.8,.2,1) .66s both}
+.a5{animation:fadeIn .8s ease .9s both}
+@keyframes slideUp{from{opacity:0;transform:translateY(28px);filter:blur(10px)}to{opacity:1;transform:translateY(0);filter:blur(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.a1,.a2,.a3,.a4,.a5,.orb{animation:none}}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div class="orb o1"></div>
+<div class="orb o2"></div>
+<div class="orb o3"></div>
+<div class="shell">
+  <div class="brand">
+    <div class="a1" aria-label="Samsung" role="img">
+      <svg xmlns="http://www.w3.org/2000/svg" width="130" height="52" viewBox="0 0 130 52" aria-hidden="true">
+        <ellipse cx="65" cy="26" rx="63" ry="24" fill="#1428A0"/>
+        <text x="65" y="33" font-family="'Arial','Helvetica',sans-serif" font-size="17.5" font-weight="700" font-style="italic" fill="#ffffff" text-anchor="middle" letter-spacing="2.5">SAMSUNG</text>
+      </svg>
+    </div>
+    <h1 class="a2">Núcleo Service</h1>
+    <p class="a3">BI Financeiro · Ambiente seguro de Despesas</p>
+  </div>
+  <div class="panel a4">
+    <h2 style="margin:0">Acesso administrativo</h2>
+    <p style="color:#718096;font-size:13px;margin:8px 0 20px">Entre para visualizar e adicionar dados financeiros.</p>
+    {% if error %}<p class="error" role="alert">{{error}}</p>{% endif %}
+    <form method="post">
+      <label for="username">Usuário</label>
+      <input name="username" id="username" autocomplete="username" required autofocus value="admin">
+      <label for="password">Senha</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Entrar no painel</button>
+    </form>
+  </div>
+  <div class="foot a5">Relatórios privados · Seus dados não ficam públicos</div>
+</div>
+<script>
+(function(){
+  const cv=document.getElementById('bg');
+  const cx=cv.getContext('2d');
+  const N=60,D=145;
+  let W,H,pts=[];
+
+  function resize(){
+    W=cv.width=window.innerWidth;
+    H=cv.height=window.innerHeight;
+  }
+
+  function mkPt(){
+    return{x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.45,vy:(Math.random()-.5)*.45,r:Math.random()*1.8+.8,a:Math.random()*.45+.15};
+  }
+
+  function init(){resize();pts=[];for(let i=0;i<N;i++)pts.push(mkPt());}
+
+  function frame(){
+    cx.clearRect(0,0,W,H);
+    const g=cx.createRadialGradient(W*.72,H*.05,0,W*.5,H*.5,Math.max(W,H));
+    g.addColorStop(0,'#1b3870');g.addColorStop(.5,'#101c38');g.addColorStop(1,'#080f1f');
+    cx.fillStyle=g;cx.fillRect(0,0,W,H);
+
+    for(let i=0;i<N;i++){
+      const p=pts[i];
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;
+      if(p.y<0||p.y>H)p.vy*=-1;
+      cx.beginPath();cx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      cx.fillStyle=`rgba(160,195,255,${p.a})`;cx.fill();
+      for(let j=i+1;j<N;j++){
+        const q=pts[j];
+        const dx=p.x-q.x,dy=p.y-q.y,d=Math.hypot(dx,dy);
+        if(d<D){
+          cx.beginPath();cx.moveTo(p.x,p.y);cx.lineTo(q.x,q.y);
+          cx.strokeStyle=`rgba(100,160,255,${.2*(1-d/D)})`;cx.lineWidth=.75;cx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+
+  init();window.addEventListener('resize',init);frame();
+})();
+</script>
+</body>
+</html>
