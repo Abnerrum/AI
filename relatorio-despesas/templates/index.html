@@ -59,7 +59,7 @@ button,input,select{font:inherit;cursor:pointer}button:disabled{opacity:.5;curso
 .tbtn.primary{background:#1a3a7a;border-color:#2050a0;color:#89b8ff}
 .tsearch{background:#0d1626;border:1px solid #1e3050;border-radius:8px;padding:7px 11px;color:var(--text);width:170px;outline:none}
 .tsearch:focus{border-color:var(--accent)}
-.table-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--border);max-height:380px;overflow-y:auto}
+.table-scroll{overflow-x:auto;border-radius:10px;border:1px solid var(--border);max-height:none;overflow-y:visible}
 table{border-collapse:collapse;width:100%;min-width:700px}
 thead th{background:#0a1020;color:#6a90c0;font-size:12px;text-transform:uppercase;letter-spacing:.06em;padding:13px 14px;text-align:left;position:sticky;top:0;white-space:nowrap;border-bottom:1px solid var(--border)}
 thead th:last-child{text-align:right}
@@ -70,6 +70,7 @@ tbody td:last-child{text-align:right;font-weight:800;color:#e0f0ff;font-variant-
 .pager{display:flex;align-items:center;justify-content:flex-end;gap:10px;margin-top:12px;color:var(--muted);font-size:12px}
 .pager button{background:#0d1626;border:1px solid #1e3050;border-radius:6px;padding:5px 11px;color:#8aaad8;font-size:14px}
 .pager button:hover{background:#1a2a44}
+.pager[hidden]{display:none!important}
 /* ── TOAST ── */
 .toast{position:fixed;bottom:20px;right:20px;background:#0d2040;border:1px solid #1e4080;color:#c8e0ff;border-radius:12px;padding:14px 18px;font-size:13px;z-index:999;max-width:420px;box-shadow:var(--shadow)}
 .toast.error{background:#2a0a0a;border-color:#602020;color:#ffb0b0}
@@ -229,6 +230,7 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
       <div class="card-title" style="margin:0">Mais detalhes — clique nos gráficos para filtrar os lançamentos</div>
       <div class="tbl-actions">
         <span style="font-size:11px;color:var(--muted)" id="detailCount">0 registros</span>
+        <button class="tbtn primary" type="button" id="toggleAllRows" aria-pressed="true">Ver 10 por página</button>
         <button class="tbtn" id="csv">↓ CSV</button>
         <input class="tsearch" id="search" placeholder="Buscar…" autocomplete="off">
       </div>
@@ -326,7 +328,7 @@ Chart.defaults.borderColor='#1b2840';
 Chart.defaults.font.family='Inter,Segoe UI,Arial,sans-serif';
 Chart.defaults.font.size=13;
 
-let all=[],shown=[],page=1,pageSize=10,_autoSynced=false,_segFilter='',_syncInFlight=false;
+let all=[],shown=[],page=1,pageSize=10,showAllRows=true,_autoSynced=false,_segFilter='',_syncInFlight=false;
 let cGroups,cOrigins,cMonthly,cCats;
 
 function mkChart(id,cfg){return new Chart(document.getElementById(id),cfg)}
@@ -430,7 +432,8 @@ function render(){
 
 function renderTable(){
   const sorted=[...shown].sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
-  const start=(page-1)*pageSize,slice=sorted.slice(start,start+pageSize);
+  const start=showAllRows?0:(page-1)*pageSize;
+  const slice=showAllRows?sorted:sorted.slice(start,start+pageSize);
   const pages=Math.max(1,Math.ceil(shown.length/pageSize));
   $('#detailTable tbody').innerHTML=slice.length?slice.map((r,i)=>`<tr>
     <td style="color:var(--muted)">${start+i+1}</td>
@@ -443,8 +446,11 @@ function renderTable(){
     <td>${brl(r.valor)}</td>
   </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
   $('#detailCount').textContent=num(shown.length)+' registros';
-  $('#pageInfo').textContent=`${start+1}-${Math.min(start+pageSize,shown.length)}/${num(shown.length)}`;
-  $('#prev').disabled=page<=1;$('#next').disabled=page>=pages;
+  $('#toggleAllRows').textContent=showAllRows?'Ver 10 por página':'Ver todos os dados';
+  $('#toggleAllRows').setAttribute('aria-pressed',String(showAllRows));
+  $('.pager').hidden=showAllRows;
+  $('#pageInfo').textContent=shown.length===0?'0 registros':`${start+1}-${Math.min(start+pageSize,shown.length)}/${num(shown.length)}`;
+  $('#prev').disabled=showAllRows||page<=1;$('#next').disabled=showAllRows||page>=pages;
 }
 
 function load(data,live){
@@ -503,6 +509,7 @@ $('#btnFora').addEventListener('click',()=>{
 $('#apply').addEventListener('click',apply);
 $('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');page=1;apply()});
 $('#search').addEventListener('keydown',e=>{if(e.key==='Enter')apply()});
+$('#toggleAllRows').addEventListener('click',()=>{showAllRows=!showAllRows;page=1;renderTable()});
 $('#prev').addEventListener('click',()=>{page=Math.max(1,page-1);renderTable()});
 $('#next').addEventListener('click',()=>{page++;renderTable()});
 $('#printButton').addEventListener('click',()=>window.print());
