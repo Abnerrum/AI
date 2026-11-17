@@ -328,8 +328,8 @@ const num=v=>new Intl.NumberFormat('pt-BR').format(v);
 const mFmt=new Intl.DateTimeFormat('pt-BR',{month:'short',year:'numeric',timeZone:'UTC'});
 const fmtMonth=m=>{const[y,mo]=m.split('-').map(Number);return mFmt.format(new Date(Date.UTC(y,mo-1,1))).replace('.','')}
 const fmtDate=d=>d?d.split('-').reverse().join('/'):''
-const CAT_COLORS={'Locação':'#2563eb','Combustível':'#f97316','Alimentação':'#eab308','Manutenção':'#22c55e','Infrações':'#ef4444','Hospedagem':'#8b5cf6','Pedágio':'#06b6d4'};
-const GROUPS={'Frotas':['Locação','Combustível','Manutenção','Infrações','Pedágio'],'Viagens':['Alimentação','Hospedagem'],'Material':['Material','Materiais','Ferramentas']};
+const CAT_COLORS={'Locação':'#2563eb','Combustível':'#f97316','Alimentação':'#eab308','Manutenção':'#22c55e','Infrações':'#ef4444','Hospedagem':'#8b5cf6','Pedágio':'#06b6d4','Material de OS':'#14b8a6'};
+const GROUPS={'Frotas':['Locação','Combustível','Manutenção','Infrações','Pedágio'],'Viagens':['Alimentação','Hospedagem'],'Material':['Material','Materiais','Ferramentas','Material de OS']};
 
 Chart.defaults.color='#7a90b0';
 Chart.defaults.borderColor='#1b2840';
