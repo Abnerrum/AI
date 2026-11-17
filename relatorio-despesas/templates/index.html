@@ -191,7 +191,6 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
         <select id="year" class="fsel"><option value="">Ano</option></select>
         <select id="startMonth" class="fsel"><option value="">Mês inicial</option></select>
         <select id="endMonth" class="fsel"><option value="">Mês final</option></select>
-        <select id="statusFilter" class="fsel"><option value="">Situação</option></select>
         <button class="tbtn primary" id="apply">✓ Aplicar</button>
         <button class="tbtn" id="clear">✕ Limpar</button>
       </div>
@@ -238,7 +237,7 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
       <table id="detailTable">
         <thead><tr>
           <th>#</th><th>Data</th><th>Categoria</th><th>Descrição</th>
-          <th>Placa / Cartão</th><th>Tipo de atendimento</th><th>Origem</th><th>Situação</th><th>Valor da despesa (R$)</th>
+          <th>Placa / Cartão</th><th>Tipo de atendimento</th><th>Origem</th><th>Valor da despesa (R$)</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -389,7 +388,6 @@ function resetOptions(){
   choices('category',uniq('categoria'),'Categoria');
   choices('origin',uniq('origem'),'Origem');
   choices('plate',uniq('placa'),'Placa / Cartão');
-  choices('statusFilter',uniq('situacao'),'Situação');
   const yrs=[...new Set(all.map(r=>String(r.data||'').slice(0,4)).filter(Boolean))].sort();
   choices('year',yrs,'Ano');
   const mos=[...new Set(all.map(mkey).filter(Boolean))].sort();
@@ -397,7 +395,7 @@ function resetOptions(){
   for(const id of['startMonth','endMonth']){for(const o of $('#'+id).options){if(o.value)o.text=fmtMonth(o.value)}}
 }
 
-function getF(){return Object.fromEntries(['category','type','origin','plate','statusFilter','year','startMonth','endMonth','search'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
+function getF(){return Object.fromEntries(['category','type','origin','plate','year','startMonth','endMonth','search'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
 
 function apply(){
   const f=getF();
@@ -407,7 +405,6 @@ function apply(){
     if(f.category&&r.categoria!==f.category)return false;
     if(f.origin&&r.origem!==f.origin)return false;
     if(f.plate&&r.placa!==f.plate)return false;
-    if(f.statusFilter&&r.situacao!==f.statusFilter)return false;
     if(f.startMonth&&m<f.startMonth)return false;
     if(f.endMonth&&m>f.endMonth)return false;
     if(_segFilter&&r.atendimento!==_segFilter)return false;
@@ -443,9 +440,8 @@ function renderTable(){
     <td>${esc(r.placa)||'—'}</td>
     <td>${esc(r.atendimento)||'—'}</td>
     <td>${esc(r.origem)||'—'}${r.origem==='MANUAL'?'<span class="badge-manual">MANUAL</span>':''}</td>
-    <td>${esc(r.situacao)||'—'}</td>
     <td>${brl(r.valor)}</td>
-  </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
   $('#detailCount').textContent=num(shown.length)+' registros';
   $('#pageInfo').textContent=`${start+1}-${Math.min(start+pageSize,shown.length)}/${num(shown.length)}`;
   $('#prev').disabled=page<=1;$('#next').disabled=page>=pages;
@@ -505,7 +501,7 @@ $('#btnFora').addEventListener('click',()=>{
 });
 
 $('#apply').addEventListener('click',apply);
-$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','statusFilter','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');page=1;apply()});
+$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','search'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');page=1;apply()});
 $('#search').addEventListener('keydown',e=>{if(e.key==='Enter')apply()});
 $('#prev').addEventListener('click',()=>{page=Math.max(1,page-1);renderTable()});
 $('#next').addEventListener('click',()=>{page++;renderTable()});
