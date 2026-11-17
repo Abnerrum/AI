@@ -36,7 +36,7 @@ except ImportError:
     pass
 
 ROOT = Path(__file__).parent
-SHEETS_CSV_URL = "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv"
+SHEETS_CSV_URL = os.getenv("SHEETS_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102031")
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'dados' / 'despesas.db'}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
@@ -308,6 +308,74 @@ def import_records(file_name, stream, original_file=None):
                 "ignoradas": ignored, "erros_amostra": errors, "total_no_banco": count_records(),
                 "arquivo_original_guardado": original_file is not None,
                 "arquivo_original_ja_existia": original_already_saved}
+    finally:
+        if workbook:
+            workbook.close()
+
+
+
+def sync_google_sheets_rows(stream):
+    """Merge the BI_GRAFICOS sheet into PostgreSQL/SQLite using Origem + ID origem.
+
+    New rows are inserted and edits to existing source IDs are updated in place.
+    Entries removed from the sheet are intentionally not deleted from the database.
+    """
+    rows, mapping, workbook = parse_uploaded_file("google-sheets.csv", stream)
+    candidates, errors, ignored = {}, [], 0
+    try:
+        for line_number, row in enumerate(rows, start=2):
+            if line_number > 100002:
+                raise ValueError("Máximo de 100.000 linhas por arquivo.")
+            if not row or not any(x is not None and str(x).strip() for x in row):
+                continue
+            try:
+                payload = row_to_expense(row, mapping, line_number)
+                if payload is None:
+                    ignored += 1
+                    continue
+                unique_id = (payload["origem"], payload["id_origem"]) if payload["id_origem"] else ("hash", payload["chave"])
+                candidates[unique_id] = payload
+            except (ValueError, TypeError) as exc:
+                if len(errors) < 8:
+                    errors.append(f"Linha {line_number}: {str(exc)}")
+        if not candidates:
+            raise ValueError("A planilha BI_GRAFICOS não possui lançamentos válidos para incluir.")
+
+        added = updated = 0
+        with SessionLocal.begin() as db:
+            existing = db.scalars(select(Despesa)).all()
+            by_id = {(r.origem, r.id_origem): r for r in existing if r.id_origem}
+            by_hash = {r.chave: r for r in existing}
+            fields = ("chave", "data", "categoria", "descricao", "placa", "atendimento", "origem", "fornecedor", "valor_centavos", "situacao", "id_origem")
+            for payload in candidates.values():
+                key = (payload["origem"], payload["id_origem"])
+                target = by_id.get(key) if payload["id_origem"] else None
+                if target is None:
+                    target = by_hash.get(payload["chave"])
+                if target is not None:
+                    if any(getattr(target, name) != payload[name] for name in fields):
+                        collision = by_hash.get(payload["chave"])
+                        if collision is not None and collision is not target:
+                            if len(errors) < 8:
+                                errors.append("Atualização ignorada por conflito entre identificadores.")
+                            continue
+                        old_hash = target.chave
+                        for name in fields:
+                            setattr(target, name, payload[name])
+                        if old_hash != payload["chave"]:
+                            by_hash.pop(old_hash, None)
+                        by_hash[payload["chave"]] = target
+                        updated += 1
+                else:
+                    target = Despesa(**payload)
+                    db.add(target)
+                    by_hash[payload["chave"]] = target
+                    if payload["id_origem"]:
+                        by_id[key] = target
+                    added += 1
+        return {"analisadas": len(candidates), "novas": added, "atualizadas": updated,
+                "ignoradas": ignored, "erros_amostra": errors,
+                "total_no_banco": count_records()}
     finally:
         if workbook:
             workbook.close()
@@ -596,9 +664,9 @@ async def sync_sheets(request: Request):
             content = resp.read(10 * 1024 * 1024 + 1)
         if len(content) > 10 * 1024 * 1024:
             raise HTTPException(413, "Planilha muito grande: limite de 10 MB.")
-        before = count_records()
-        result = import_records("google-sheets.csv", io.BytesIO(content))
-        result["novas"] = result["total_no_banco"] - before
+        if content.lstrip()[:20].lower().startswith((b"<!doctype html", b"<html")):
+            raise ValueError("Google Sheets retornou uma página de login em vez do CSV. Configure acesso autorizado à fonte.")
+        result = sync_google_sheets_rows(io.BytesIO(content))
         return {"resultado": result}
     except HTTPException:
         raise
