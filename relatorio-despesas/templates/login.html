@@ -132,8 +132,8 @@ button:hover::after{animation:shimmer .65s ease forwards}
     // Cruzeiro do Sul: eixo Gacrux–Acrux, braços Mimosa–Delta e Epsilon Crucis.
     // É uma composição ilustrativa, não um mapa astronômico de coordenadas exatas.
     const compact=width<760;
-    const x=compact?width*.80:width*.82;
-    const y=compact?height*.16:height*.39;
+    const x=(compact?width*.80:width*.82)+Math.sin(time*.00015)*2;
+    const y=(compact?height*.16:height*.39)+Math.cos(time*.00013)*2;
     const scale=compact?Math.min(.58,width/780):Math.min(1.13,width/1450);
     const points={
       gacrux:[0,-99,3.1],
@@ -167,6 +167,99 @@ button:hover::after{animation:shimmer .65s ease forwards}
     }
   }
 
+
+  // Constelações ilustrativas: posição pensada para não cobrir o formulário.
+  function constellation(time, title, anchor, points, links, scale, showLabel=true){
+    const driftX=reduceMotion?0:Math.sin(time*.00014+anchor[0])*2.5;
+    const driftY=reduceMotion?0:Math.cos(time*.00012+anchor[1])*2;
+    const pos=k=>{
+      const [px,py]=points[k];
+      return [anchor[0]+px*scale+driftX,anchor[1]+py*scale+driftY];
+    };
+    ctx.strokeStyle='rgba(153,190,247,.28)';
+    ctx.lineWidth=.9;
+    ctx.beginPath();
+    for(const [a,b] of links){
+      const first=pos(a),second=pos(b);
+      ctx.moveTo(first[0],first[1]);ctx.lineTo(second[0],second[1]);
+    }
+    ctx.stroke();
+    for(const [key,coordinates] of Object.entries(points)){
+      const p=pos(key);
+      const sparkle=reduceMotion?1:(.86+.14*Math.sin(time*.00125+coordinates[0]*.07));
+      star(p[0],p[1],coordinates[2]*scale,sparkle,true);
+    }
+    if(showLabel){
+      ctx.save();
+      ctx.font='500 11px Inter, Segoe UI, Arial, sans-serif';
+      ctx.textAlign='center';
+      ctx.fillStyle='rgba(181,206,248,.62)';
+      ctx.fillText(title,anchor[0]+driftX,anchor[1]+126*scale+driftY);
+      ctx.restore();
+    }
+  }
+
+  function drawOrion(time){
+    const mobile=width<760;
+    const anchor=[width*(mobile?.18:.19),height*(mobile?.14:.31)];
+    const sc=mobile?Math.min(.55,width/720):Math.min(1,width/1350);
+    // Cinturão de Órion no centro e quatro estrelas exteriores.
+    constellation(time,'ÓRION',anchor,{
+      betelgeuse:[-62,-72,3.7],bellatrix:[55,-68,2.7],
+      mintaka:[-26,-10,2.5],alnilam:[0,0,2.8],alnitak:[28,12,2.7],
+      saiph:[-50,74,2.8],rigel:[63,73,3.8]
+    },[
+      ['betelgeuse','bellatrix'],['betelgeuse','mintaka'],['bellatrix','alnitak'],
+      ['mintaka','alnilam'],['alnilam','alnitak'],
+      ['mintaka','saiph'],['alnitak','rigel'],['saiph','rigel']
+    ],sc,!mobile);
+  }
+
+  function drawEscorpiao(time){
+    const mobile=width<760;
+    const anchor=[width*(mobile?.18:.21),height*(mobile?.84:.75)];
+    const sc=mobile?Math.min(.48,width/820):Math.min(.94,width/1450);
+    constellation(time,'ESCORPIÃO',anchor,{
+      head1:[-89,-55,2.1],head2:[-52,-64,2.2],head3:[-19,-42,2.2],
+      antares:[14,-16,3.8],body1:[47,11,2.4],body2:[77,39,2.2],
+      tail1:[91,68,2.2],tail2:[113,95,2],tail3:[134,103,2],
+      sting:[142,74,2.4]
+    },[
+      ['head1','head2'],['head2','head3'],['head3','antares'],
+      ['antares','body1'],['body1','body2'],['body2','tail1'],
+      ['tail1','tail2'],['tail2','tail3'],['tail3','sting']
+    ],sc,!mobile);
+  }
+
+  // Estrelas cadentes ocasionais, leves, independentes do preenchimento do login.
+  let meteors=[],nextMeteor=4600;
+  function drawMeteors(time){
+    if(!reduceMotion&&time>nextMeteor){
+      const left=rand()>.5;
+      meteors.push({
+        x:width*(left?.12:.68)+rand()*width*.14,
+        y:height*(.07+rand()*.26),
+        start:time,
+        duration:850+rand()*380,
+        dx:110+rand()*70,
+        dy:55+rand()*50
+      });
+      nextMeteor=time+6500+rand()*5500;
+    }
+    meteors=meteors.filter(m=>time-m.start<m.duration);
+    for(const m of meteors){
+      const t=Math.max(0,Math.min(1,(time-m.start)/m.duration));
+      const opacity=Math.sin(Math.PI*t)*.82;
+      const x=m.x+m.dx*t,y=m.y+m.dy*t;
+      const tail=ctx.createLinearGradient(x-m.dx*.3,y-m.dy*.3,x,y);
+      tail.addColorStop(0,'rgba(150,197,255,0)');
+      tail.addColorStop(1,'rgba(223,241,255,'+opacity+')');
+      ctx.strokeStyle=tail;ctx.lineWidth=1.6;
+      ctx.beginPath();ctx.moveTo(x-m.dx*.3,y-m.dy*.3);ctx.lineTo(x,y);ctx.stroke();
+      star(x,y,1.8,opacity,false);
+    }
+  }
+
   function draw(time){
     ctx.clearRect(0,0,width,height);
     const base=ctx.createLinearGradient(0,0,width,height);
@@ -186,7 +279,10 @@ button:hover::after{animation:shimmer .65s ease forwards}
       ctx.fillStyle=tone+(p.alpha*flicker)+')';
       ctx.beginPath();ctx.arc(p.x,p.y,p.radius,0,TAU);ctx.fill();
     }
+    drawOrion(time);
     drawCruzeiroDoSul(time);
+    drawEscorpiao(time);
+    drawMeteors(time);
   }
 
   function animate(time){
