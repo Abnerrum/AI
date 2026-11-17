@@ -532,7 +532,7 @@ $('#btnFora').addEventListener('click',()=>{
 });
 
 $('#apply').addEventListener('click',apply);
-$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth'])$('#'+id)&&($('##'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
+$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
 for(const id of ['detailMonth','detailCategory','detailOrigin','detailType','detailPlate'])$('#'+id).addEventListener('change',renderTable);
 $('#search').addEventListener('input',renderTable);
 $('#tableClear').addEventListener('click',()=>{
