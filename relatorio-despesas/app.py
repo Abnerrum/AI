@@ -95,6 +95,16 @@ class PessoaFonte(Base):
     )
 
 
+class TitularCartao(Base):
+    """Vínculo por últimos quatro dígitos; titular não comprova uso da despesa."""
+    __tablename__ = "titulares_cartoes"
+    cartao: Mapped[str] = mapped_column(String(4), primary_key=True)
+    titular: Mapped[str] = mapped_column(String(255), nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class FonteDados(Base):
     __tablename__ = "fontes_dados"
     pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -411,7 +421,10 @@ def count_records():
         return db.scalar(select(func.count(Despesa.pk))) or 0
 
 
-def serialize_expense(x, identificacao=None, pessoa_fonte=None):
+def serialize_expense(x, identificacao=None, pessoa_fonte=None, titular_por_cartao=""):
+    titular_direto = pessoa_fonte.titular_cartao if pessoa_fonte else ""
+    titular = titular_direto or titular_por_cartao
+    vinculo = "transacao" if titular_direto else ("cartao" if titular_por_cartao else "")
     return {"pk": x.pk, "data": x.data.isoformat(), "categoria": x.categoria,
             "descricao": x.descricao, "placa": x.placa, "atendimento": x.atendimento,
             "origem": x.origem, "fornecedor": x.fornecedor,
@@ -420,7 +433,8 @@ def serialize_expense(x, identificacao=None, pessoa_fonte=None):
             "material_utilizado": identificacao.material_utilizado if identificacao else "",
             "referencia_os": identificacao.referencia_os if identificacao else "",
             "observacoes_identificacao": identificacao.observacoes if identificacao else "",
-            "titular_cartao_fonte": pessoa_fonte.titular_cartao if pessoa_fonte else "",
+            "titular_cartao_fonte": titular,
+            "titular_vinculo": vinculo,
             "descricao_origem_fonte": pessoa_fonte.descricao_origem if pessoa_fonte else ""}
 
 
@@ -513,8 +527,17 @@ def records(request: Request):
         records = db.scalars(select(Despesa).order_by(Despesa.data.desc(), Despesa.pk.desc())).all()
         identificacoes = {r.despesa_pk: r for r in db.scalars(select(IdentificacaoUso)).all()}
         pessoas_fonte = {r.id_origem: r for r in db.scalars(select(PessoaFonte)).all()}
+        titulares_cartoes = {r.cartao: r.titular for r in db.scalars(select(TitularCartao)).all()}
+
+        def titular_correspondente(x):
+            if x.origem != "CLARA":
+                return ""
+            match = re.search(r"(\\d{4})$", x.placa or "")
+            return titulares_cartoes.get(match.group(1), "") if match else ""
+
         return {"registros": [serialize_expense(
-            x, identificacoes.get(x.pk), pessoas_fonte.get(x.id_origem)) for x in records],
+            x, identificacoes.get(x.pk), pessoas_fonte.get(x.id_origem),
+            titular_correspondente(x)) for x in records],
                 "total": len(records),
                 "storage_ready": not (os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite")}
 
@@ -746,6 +769,7 @@ def sincronizar_titulares_clara(stream):
     if not leitor.fieldnames or "Identificador único" not in leitor.fieldnames or "Responsável" not in leitor.fieldnames:
         raise ValueError("A aba CLARA não possui as colunas de identificação esperadas.")
     registros = {}
+    titulares_por_cartao = {}
     for linha in leitor:
         uid = str(linha.get("Identificador único") or "").strip()
         if not uid:
@@ -753,7 +777,14 @@ def sincronizar_titulares_clara(stream):
         titular = " ".join(str(linha.get("Responsável") or "").split())
         descricao = str(linha.get("Descrição") or "").strip()
         registros["CLARA:" + uid] = (titular[:255], descricao[:2000])
+        cartao = re.sub(r"\\D", "", str(linha.get("Cartão (últimos 4)") or "")).zfill(4)[-4:]
+        if cartao != "0000" and titular:
+            titulares_por_cartao.setdefault(cartao, set()).add(titular.casefold())
+    # Não atribuir nomes a cartões que tiveram múltiplos responsáveis diferentes.
+    titulares_unicos = {cartao: next(iter(nomes)) for cartao, nomes in titulares_por_cartao.items()
+                       if len(nomes) == 1}
     inseridos = atualizados = 0
+    cartoes_novos = cartoes_atualizados = 0
     with SessionLocal.begin() as db:
         existentes = {p.id_origem: p for p in db.scalars(select(PessoaFonte)).all()}
         for chave, (titular, descricao) in registros.items():
@@ -767,7 +798,26 @@ def sincronizar_titulares_clara(stream):
                 pessoa.descricao_origem = descricao
                 pessoa.atualizado_em = datetime.now(timezone.utc)
                 atualizados += 1
+        cartoes_anteriores = {p.cartao: p for p in db.scalars(select(TitularCartao)).all()}
+        for cartao, titular in titulares_unicos.items():
+            ref = cartoes_anteriores.get(cartao)
+            if ref is None:
+                db.add(TitularCartao(cartao=cartao, titular=titular))
+                cartoes_novos += 1
+            elif ref.titular.casefold() != titular:
+                ref.titular = titular
+                ref.atualizado_em = datetime.now(timezone.utc)
+                cartoes_atualizados += 1
+        # Se um cartão ficar ambíguo num CSV posterior, remover o vínculo
+        # antigo para evitar atribuição indevida de titular.
+        ambiguos = set(titulares_por_cartao) - set(titulares_unicos)
+        for cartao in ambiguos:
+            ref = cartoes_anteriores.get(cartao)
+            if ref is not None:
+                db.delete(ref)
+                cartoes_atualizados += 1
     return {"titulares_novos": inseridos, "titulares_atualizados": atualizados,
+            "cartoes_novos": cartoes_novos, "cartoes_atualizados": cartoes_atualizados,
             "fonte_clara": len(registros)}
 
 
