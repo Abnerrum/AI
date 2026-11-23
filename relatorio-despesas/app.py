@@ -70,6 +70,19 @@ class Despesa(Base):
     id_origem: Mapped[str] = mapped_column(String(240), default="")
     criado_em: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
+
+class IdentificacaoUso(Base):
+    """Complemento de rastreabilidade, independente das despesas financeiras."""
+    __tablename__ = "identificacoes_uso"
+    despesa_pk: Mapped[int] = mapped_column(Integer, primary_key=True)
+    responsavel: Mapped[str] = mapped_column(String(255), default="")
+    material_utilizado: Mapped[str] = mapped_column(Text, default="")
+    referencia_os: Mapped[str] = mapped_column(String(255), default="")
+    observacoes: Mapped[str] = mapped_column(Text, default="")
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
 class FonteDados(Base):
     __tablename__ = "fontes_dados"
     pk: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -386,11 +399,15 @@ def count_records():
         return db.scalar(select(func.count(Despesa.pk))) or 0
 
 
-def serialize_expense(x):
+def serialize_expense(x, identificacao=None):
     return {"pk": x.pk, "data": x.data.isoformat(), "categoria": x.categoria,
             "descricao": x.descricao, "placa": x.placa, "atendimento": x.atendimento,
             "origem": x.origem, "fornecedor": x.fornecedor,
-            "valor": x.valor_centavos / 100, "situacao": x.situacao, "id": x.id_origem}
+            "valor": x.valor_centavos / 100, "situacao": x.situacao, "id": x.id_origem,
+            "responsavel_uso": identificacao.responsavel if identificacao else "",
+            "material_utilizado": identificacao.material_utilizado if identificacao else "",
+            "referencia_os": identificacao.referencia_os if identificacao else "",
+            "observacoes_identificacao": identificacao.observacoes if identificacao else ""}
 
 
 def authenticated(request: Request):
@@ -480,8 +497,58 @@ def records(request: Request):
     require_auth(request)
     with SessionLocal() as db:
         records = db.scalars(select(Despesa).order_by(Despesa.data.desc(), Despesa.pk.desc())).all()
-        return {"registros": [serialize_expense(x) for x in records], "total": len(records),
+        identificacoes = {r.despesa_pk: r for r in db.scalars(select(IdentificacaoUso)).all()}
+        return {"registros": [serialize_expense(x, identificacoes.get(x.pk)) for x in records],
+                "total": len(records),
                 "storage_ready": not (os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite")}
+
+
+@app.post("/api/identificacoes/{pk}")
+async def salvar_identificacao(pk: int, request: Request):
+    """Identifica quem consumiu alimentação ou quem usou qual material de OS.
+
+    Combustível e frota continuam rastreados pela placa, fora deste controle.
+    A despesa original, valores e classificação financeira não são alterados.
+    """
+    require_auth(request)
+    require_csrf(request)
+    require_persistent_storage()
+    try:
+        payload = await request.json()
+    except (ValueError, TypeError):
+        raise HTTPException(400, "Dados da identificação inválidos.")
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Envie um objeto de identificação.")
+
+    field_limits = {"responsavel_uso": 255, "material_utilizado": 1000,
+                    "referencia_os": 255, "observacoes_identificacao": 1000}
+    values = {}
+    for name, limit in field_limits.items():
+        raw = payload.get(name, "")
+        if raw is not None and not isinstance(raw, str):
+            raise HTTPException(400, f"Campo {name} inválido.")
+        value = (raw or "").strip()
+        if len(value) > limit:
+            raise HTTPException(400, f"Campo {name} excede o limite de {limit} caracteres.")
+        values[name] = value
+
+    with SessionLocal.begin() as db:
+        despesa = db.get(Despesa, pk)
+        if not despesa:
+            raise HTTPException(404, "Despesa não encontrada.")
+        if despesa.categoria not in ("Alimentação", "Material de OS"):
+            raise HTTPException(400, "Somente Alimentação e Material de OS exigem identificação pessoal.")
+        item = db.get(IdentificacaoUso, pk)
+        if item is None:
+            item = IdentificacaoUso(despesa_pk=pk)
+            db.add(item)
+        item.responsavel = values["responsavel_uso"]
+        item.material_utilizado = values["material_utilizado"] if despesa.categoria == "Material de OS" else ""
+        item.referencia_os = values["referencia_os"] if despesa.categoria == "Material de OS" else ""
+        item.observacoes = values["observacoes_identificacao"]
+        item.atualizado_em = datetime.now(timezone.utc)
+
+    return {"status": "salvo", "despesa_pk": pk}
 
 
 @app.post("/api/import")
