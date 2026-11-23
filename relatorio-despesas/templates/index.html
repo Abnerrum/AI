@@ -560,6 +560,20 @@ function pessoaCitadaNaFonte(r){
   if(consumidorExplicitoNaDescricao(r))return String(r.descricao||'').trim();
   return '';
 }
+// Associação informada pelo gestor, também cadastrada em MAPA_CARTOES_CLARA.
+// Fonte por transação prevalece; o mapa é fallback visual durante sincronizações.
+const TITULARES_CARTOES_CLARA={
+  '9281':'Reyner Machado','0689':'Raifran Santos','0059':'Matheus Cipriano',
+  '4141':'Phillip Borges Nunes','4228':'Gerwisley Neto',
+  '6711':'Salatiel Mesquita','6226':'Salatiel Mesquita','8410':'Reyner Machado'
+};
+function titularDoCartao(r){
+  if(r.origem!=='CLARA')return '';
+  const direto=String(r.titular_cartao_fonte||'').trim();
+  if(direto)return direto;
+  const m=String(r.placa||'').match(/(?:^|\D)(\d{4})$/);
+  return m?TITULARES_CARTOES_CLARA[m[1]]||'':'';
+}
 function nomeTecnicoFonte(r){
   // Prioriza a identificação realmente confirmada, sem atribuir consumo ao titular.
   const placa=String(r.placa||'').trim();
@@ -570,7 +584,7 @@ function nomeTecnicoFonte(r){
   if(confirmado)return confirmado;
   const descricao=pessoaCitadaNaFonte(r);
   if(descricao)return descricao;
-  const titular=String(r.titular_cartao_fonte||'').trim();
+  const titular=titularDoCartao(r);
   if(titular)return titular;
   return 'Não informado';
 }
@@ -578,7 +592,7 @@ function tipoNomeFonte(r){
   if(['Combustível','Locação','Manutenção','Infrações','Pedágio','Rastreamento'].includes(r.categoria))return 'Veículo / placa';
   if(String(r.responsavel_uso||'').trim())return 'Uso confirmado';
   if(pessoaCitadaNaFonte(r))return 'Pessoa citada na descrição';
-  if(String(r.titular_cartao_fonte||'').trim())return 'Titular Clara — consumo não confirmado';
+  if(titularDoCartao(r))return 'Titular Clara — consumo não confirmado';
   return 'Sem identificação na base';
 }
 function editarIdentificacao(pk){
