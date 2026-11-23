@@ -165,6 +165,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
 #identTable td{vertical-align:middle}
 .ident-footer{padding-top:10px;color:var(--muted);font-size:12px}
 .ident-missing{font-weight:600;color:#f4b567}
+.ident-person{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a5d7fb}
 .ident-item{max-width:270px;overflow:hidden;text-overflow:ellipsis}
 #identTable .tbtn{white-space:nowrap}
 @media(max-width:850px){ .ident-scroll{max-height:330px} #identCard .table-head{display:block} #identCard .tbl-actions{margin-top:12px;flex-wrap:wrap} }
@@ -265,7 +266,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
       <table id="identTable">
         <thead><tr>
           <th>Data</th><th>Categoria</th><th>Despesa / descrição</th><th>Informação que falta</th>
-          <th>Atendimento</th><th>Origem / ID</th><th>Valor</th><th>Ação</th>
+          <th>Atendimento</th><th>Nome disponível na fonte</th><th>Origem / ID</th><th>Valor</th><th>Ação</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -296,7 +297,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
       <table id="detailTable">
         <thead><tr>
           <th>#</th><th>Data</th><th>Categoria</th><th>Descrição</th>
-          <th>Placa / Cartão</th><th>Tipo de atendimento</th><th>Origem</th><th>Valor da despesa (R$)</th>
+          <th>Placa / Cartão</th><th>Tipo de atendimento</th><th>Nome / Técnico identificado</th><th>Origem</th><th>Valor da despesa (R$)</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -548,9 +549,10 @@ function renderTable(){
     <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(r.descricao)}">${esc(r.descricao)}</td>
     <td>${esc(r.placa)||'—'}</td>
     <td>${esc(r.atendimento)||'—'}</td>
+    <td class="ident-person" title="${esc(nomeTecnicoFonte(r))}">${esc(nomeTecnicoFonte(r))}</td>
     <td>${esc(r.origem)||'—'}${r.origem==='MANUAL'?'<span class="badge-manual">MANUAL</span>':''}</td>
     <td>${brl(r.valor)}</td>
-  </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
   $('#detailCount').textContent=num(sorted.length)+' de '+num(shown.length)+' registros';
   viewport.scrollTop=0;
 }
@@ -578,10 +580,27 @@ function consumidorExplicitoNaDescricao(r){
   if(/\b(?:restaurante|hotel|lanchonete|pizzaria|posto|mercado|comercio|sabor|churrasco|grill|supermercado|burguer|rest\.)\b/i.test(raw))return false;
   return /^\s*[A-ZÀ-Ý][a-zà-ÿ]{2,}(?:\s+[A-ZÀ-Ý][a-zà-ÿ]{2,})?\s+(?:e|,|&)\s*[A-ZÀ-Ý][a-zà-ÿ]{2,}/u.test(raw);
 }
+function pessoaCitadaNaFonte(r){
+  if(r.categoria!=='Alimentação')return '';
+  const textoOriginal=String(r.descricao_origem_fonte||'').trim();
+  if(textoOriginal&&consumidorExplicitoNaDescricao({...r,descricao:textoOriginal}))return textoOriginal;
+  if(consumidorExplicitoNaDescricao(r))return String(r.descricao||'').trim();
+  return '';
+}
+function nomeTecnicoFonte(r){
+  // Responsável de pagamento e consumidor/usuário do material são papéis diferentes.
+  const manual=String(r.responsavel_uso||'').trim();
+  if(manual)return 'Confirmado: '+manual;
+  const citado=pessoaCitadaNaFonte(r);
+  if(citado)return 'Pessoa(s) na descrição: '+citado;
+  const titular=String(r.titular_cartao_fonte||'').trim();
+  if(titular)return 'Titular Clara (uso não confirmado): '+titular;
+  return 'Não identificado';
+}
 function camposPendentes(r){
   const falta=[];
   if(r.categoria==='Alimentação'){
-    if(!String(r.responsavel_uso||'').trim()&&!consumidorExplicitoNaDescricao(r))falta.push('Quem se alimentou');
+    if(!String(r.responsavel_uso||'').trim()&&!pessoaCitadaNaFonte(r))falta.push('Quem se alimentou');
   }else if(r.categoria==='Material de OS'){
     if(!String(r.responsavel_uso||'').trim())falta.push('Quem utilizou');
     if(!String(r.material_utilizado||'').trim())falta.push('Material efetivamente usado');
@@ -608,10 +627,11 @@ function renderPendencias(){
     <td class="ident-item" title="${esc(r.descricao)}">${esc(r.descricao)||'—'}</td>
     <td class="ident-missing">${esc(camposPendentes(r).join(' + '))}</td>
     <td>${esc(r.atendimento)||'—'}</td>
+    <td class="ident-person" title="${esc(nomeTecnicoFonte(r))}">${esc(nomeTecnicoFonte(r))}</td>
     <td title="${esc(r.id)}">${esc(r.origem)} <small>${esc(r.id)}</small></td>
     <td>${brl(r.valor)}</td>
     <td><button class="tbtn primary" type="button" data-ident-pk="${r.pk}">Identificar</button></td>
-  </tr>`).join(''):'<tr><td colspan="8" style="text-align:center;padding:25px;color:var(--muted)">Nenhuma pendência para estes filtros.</td></tr>';
+  </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:25px;color:var(--muted)">Nenhuma pendência para estes filtros.</td></tr>';
   $('#identFooter').textContent=(data.length>150?'Exibindo as primeiras 150 de '+num(data.length)+' pendências. Use a busca ou exporte o CSV. ':'')
     +'Não confunda o titular do cartão com quem consumiu, nem o fornecedor com quem utilizou o material.';
 }
@@ -827,7 +847,7 @@ async function syncSheets(silent=false){
   try{
     const res=await reqJSON('/api/sync-sheets',{method:'POST'});
     const r=res.resultado;
-    if(r.novas>0 || r.atualizadas>0){
+    if(r.novas>0 || r.atualizadas>0 || r.titulares_novos>0 || r.titulares_atualizados>0){
       notification('✓ '+r.novas+' novo(s) e '+r.atualizadas+' atualizado(s) do Google Sheets.');
       _autoSynced=true;
       await reload();
