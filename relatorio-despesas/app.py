@@ -532,7 +532,7 @@ def records(request: Request):
         def titular_correspondente(x):
             if x.origem != "CLARA":
                 return ""
-            match = re.search(r"(\\d{4})$", x.placa or "")
+            match = re.search(r"(\d{4})$", x.placa or "")
             return titulares_cartoes.get(match.group(1), "") if match else ""
 
         return {"registros": [serialize_expense(
@@ -777,11 +777,11 @@ def sincronizar_titulares_clara(stream):
         titular = " ".join(str(linha.get("Responsável") or "").split())
         descricao = str(linha.get("Descrição") or "").strip()
         registros["CLARA:" + uid] = (titular[:255], descricao[:2000])
-        cartao = re.sub(r"\\D", "", str(linha.get("Cartão (últimos 4)") or "")).zfill(4)[-4:]
+        cartao = re.sub(r"\D", "", str(linha.get("Cartão (últimos 4)") or "")).zfill(4)[-4:]
         if cartao != "0000" and titular:
-            titulares_por_cartao.setdefault(cartao, set()).add(titular.casefold())
+            titulares_por_cartao.setdefault(cartao, {})[titular.casefold()] = titular
     # Não atribuir nomes a cartões que tiveram múltiplos responsáveis diferentes.
-    titulares_unicos = {cartao: next(iter(nomes)) for cartao, nomes in titulares_por_cartao.items()
+    titulares_unicos = {cartao: next(iter(nomes.values())) for cartao, nomes in titulares_por_cartao.items()
                        if len(nomes) == 1}
     inseridos = atualizados = 0
     cartoes_novos = cartoes_atualizados = 0
