@@ -37,6 +37,7 @@ except ImportError:
 
 ROOT = Path(__file__).parent
 SHEETS_CSV_URL = os.getenv("SHEETS_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102031")
+CLARA_CSV_URL = os.getenv("CLARA_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102029")
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'dados' / 'despesas.db'}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
@@ -82,6 +83,17 @@ class IdentificacaoUso(Base):
     atualizado_em: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+class PessoaFonte(Base):
+    """Titular informado pela fonte Clara; NÃO equivale ao consumidor/usuário comprovado."""
+    __tablename__ = "pessoas_fonte"
+    id_origem: Mapped[str] = mapped_column(String(240), primary_key=True)
+    titular_cartao: Mapped[str] = mapped_column(String(255), default="")
+    descricao_origem: Mapped[str] = mapped_column(Text, default="")
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
 
 class FonteDados(Base):
     __tablename__ = "fontes_dados"
@@ -399,7 +411,7 @@ def count_records():
         return db.scalar(select(func.count(Despesa.pk))) or 0
 
 
-def serialize_expense(x, identificacao=None):
+def serialize_expense(x, identificacao=None, pessoa_fonte=None):
     return {"pk": x.pk, "data": x.data.isoformat(), "categoria": x.categoria,
             "descricao": x.descricao, "placa": x.placa, "atendimento": x.atendimento,
             "origem": x.origem, "fornecedor": x.fornecedor,
@@ -407,7 +419,9 @@ def serialize_expense(x, identificacao=None):
             "responsavel_uso": identificacao.responsavel if identificacao else "",
             "material_utilizado": identificacao.material_utilizado if identificacao else "",
             "referencia_os": identificacao.referencia_os if identificacao else "",
-            "observacoes_identificacao": identificacao.observacoes if identificacao else ""}
+            "observacoes_identificacao": identificacao.observacoes if identificacao else "",
+            "titular_cartao_fonte": pessoa_fonte.titular_cartao if pessoa_fonte else "",
+            "descricao_origem_fonte": pessoa_fonte.descricao_origem if pessoa_fonte else ""}
 
 
 def authenticated(request: Request):
@@ -498,7 +512,9 @@ def records(request: Request):
     with SessionLocal() as db:
         records = db.scalars(select(Despesa).order_by(Despesa.data.desc(), Despesa.pk.desc())).all()
         identificacoes = {r.despesa_pk: r for r in db.scalars(select(IdentificacaoUso)).all()}
-        return {"registros": [serialize_expense(x, identificacoes.get(x.pk)) for x in records],
+        pessoas_fonte = {r.id_origem: r for r in db.scalars(select(PessoaFonte)).all()}
+        return {"registros": [serialize_expense(
+            x, identificacoes.get(x.pk), pessoas_fonte.get(x.id_origem)) for x in records],
                 "total": len(records),
                 "storage_ready": not (os.environ.get("COOKIE_SECURE") == "1" and engine.dialect.name == "sqlite")}
 
@@ -720,6 +736,41 @@ async def sync_fonte_pk(pk: int, request: Request):
         raise HTTPException(502, f"Erro ao buscar '{nome}': {str(err)[:200]}")
 
 
+
+def sincronizar_titulares_clara(stream):
+    """Importa nomes da aba CLARA pela chave original, sem atribuir uso ou consumo."""
+    raw = stream.read().decode("utf-8-sig")
+    if raw.lstrip().lower().startswith(("<html", "<!doctype html")):
+        raise ValueError("Acesso ao CSV Clara indisponível.")
+    leitor = csv.DictReader(io.StringIO(raw))
+    if not leitor.fieldnames or "Identificador único" not in leitor.fieldnames or "Responsável" not in leitor.fieldnames:
+        raise ValueError("A aba CLARA não possui as colunas de identificação esperadas.")
+    registros = {}
+    for linha in leitor:
+        uid = str(linha.get("Identificador único") or "").strip()
+        if not uid:
+            continue
+        titular = " ".join(str(linha.get("Responsável") or "").split())
+        descricao = str(linha.get("Descrição") or "").strip()
+        registros["CLARA:" + uid] = (titular[:255], descricao[:2000])
+    inseridos = atualizados = 0
+    with SessionLocal.begin() as db:
+        existentes = {p.id_origem: p for p in db.scalars(select(PessoaFonte)).all()}
+        for chave, (titular, descricao) in registros.items():
+            pessoa = existentes.get(chave)
+            if pessoa is None:
+                db.add(PessoaFonte(id_origem=chave, titular_cartao=titular,
+                                   descricao_origem=descricao))
+                inseridos += 1
+            elif pessoa.titular_cartao != titular or pessoa.descricao_origem != descricao:
+                pessoa.titular_cartao = titular
+                pessoa.descricao_origem = descricao
+                pessoa.atualizado_em = datetime.now(timezone.utc)
+                atualizados += 1
+    return {"titulares_novos": inseridos, "titulares_atualizados": atualizados,
+            "fonte_clara": len(registros)}
+
+
 @app.post("/api/sync-sheets")
 async def sync_sheets(request: Request):
     require_auth(request)
@@ -734,6 +785,19 @@ async def sync_sheets(request: Request):
         if content.lstrip()[:20].lower().startswith((b"<!doctype html", b"<html")):
             raise ValueError("Google Sheets retornou uma página de login em vez do CSV. Configure acesso autorizado à fonte.")
         result = sync_google_sheets_rows(io.BytesIO(content))
+        # Atualização complementar: nomes da Clara identificam o TITULAR do cartão.
+        # Acesso indisponível não deve interromper a sincronização das despesas.
+        try:
+            req_clara = _url_req.Request(CLARA_CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
+            with _url_req.urlopen(req_clara, timeout=30) as resp:
+                dados_clara = resp.read(10 * 1024 * 1024 + 1)
+            if len(dados_clara) > 10 * 1024 * 1024:
+                raise ValueError("CSV Clara excede o limite de 10 MB.")
+            result.update(sincronizar_titulares_clara(io.BytesIO(dados_clara)))
+        except Exception:
+            # Sem adivinhar nomes: conservar registros já obtidos e permitir
+            # que o administrador continue identificando os casos pendentes.
+            result["aviso_titulares"] = "Não foi possível sincronizar os titulares da aba CLARA."
         return {"resultado": result}
     except HTTPException:
         raise
