@@ -248,7 +248,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
     <div class="table-head">
       <div>
         <div class="card-title" id="identTitle" style="margin:0">Pendências de identificação</div>
-        <p class="ident-help">Somente Alimentação e Material de OS. Combustível permanece em Frota, identificado pela placa do veículo. Lançamentos já identificados não aparecem aqui.</p>
+        <p class="ident-help">Somente Alimentação e Material de OS. Combustível permanece em Frota, identificado pela placa do veículo. Lançamentos com consumidor explicitamente indicado na descrição ou registrado no sistema não aparecem como pendentes.</p>
       </div>
       <div class="tbl-actions">
         <span id="identCount" class="ident-counter">0 pendentes</span>
@@ -558,10 +558,30 @@ function renderTable(){
 
 /* Pendências são exclusivamente de Alimentação (quem comeu) e Material de OS
    (quem utilizou e o que foi usado). Frota/combustível = placa do veículo. */
+function consumidorExplicitoNaDescricao(r){
+  // Considera apenas descrições que apontam pessoas, nunca o titular do cartão,
+  // o fornecedor ou uma categoria genérica. Casos incertos continuam pendentes.
+  const raw=String(r.descricao||'').trim();
+  const d=raw.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const meal=d.match(/^(?:almoco|janta|jantar|lanche|refeicao|cafe da manha)(?:\s+(?:de|do|da|dos|das|para|p))?\s+(.+)$/);
+  if(meal){
+    const cand=meal[1].replace(/^(?:tecnico|tecnica|tec\.?|colaborador|colaboradora|dos|das|do|da|de|p\/)\s+/,'').trim();
+    const words=cand.match(/[a-z]{3,}/g)||[];
+    const generic=new Set(['em','no','na','para','com','do','da','dos','das','viagem','tecnico',
+      'tecnica','colaborador','restaurante','hotel','posto','refeicao','valor','pago',
+      'alimentacao','geral','pessoas','equipe','sem','comida','frango','carne','pizza',
+      'marmita','churrasco','marmitex','reembolso','tec','por','servico','diaria',
+      'refeicoes','nucleo','complemento','rest','lanchonete','cidade','shopping']);
+    return Boolean(words.length && !generic.has(words[0]) && !/^\d/.test(cand) &&
+      !(/\b(?:restaurante|pizzaria|hotel|posto)\b/.test(cand)&&words.length<3));
+  }
+  if(/\b(?:restaurante|hotel|lanchonete|pizzaria|posto|mercado|comercio|sabor|churrasco|grill|supermercado|burguer|rest\.)\b/i.test(raw))return false;
+  return /^\s*[A-ZÀ-Ý][a-zà-ÿ]{2,}(?:\s+[A-ZÀ-Ý][a-zà-ÿ]{2,})?\s+(?:e|,|&)\s*[A-ZÀ-Ý][a-zà-ÿ]{2,}/u.test(raw);
+}
 function camposPendentes(r){
   const falta=[];
   if(r.categoria==='Alimentação'){
-    if(!String(r.responsavel_uso||'').trim())falta.push('Quem se alimentou');
+    if(!String(r.responsavel_uso||'').trim()&&!consumidorExplicitoNaDescricao(r))falta.push('Quem se alimentou');
   }else if(r.categoria==='Material de OS'){
     if(!String(r.responsavel_uso||'').trim())falta.push('Quem utilizou');
     if(!String(r.material_utilizado||'').trim())falta.push('Material efetivamente usado');
