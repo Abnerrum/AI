@@ -599,7 +599,7 @@ function nomeTecnicoFonte(r){
   const citado=pessoaCitadaNaFonte(r);
   if(citado)return 'Pessoa(s) na descrição: '+citado;
   const titular=String(r.titular_cartao_fonte||'').trim();
-  if(titular)return 'Titular Clara (uso não confirmado): '+titular;
+  if(titular)return 'Titular Clara ('+(r.titular_vinculo==='cartao'?'por cartão':'por transação')+', uso não confirmado): '+titular;
   return 'Não identificado';
 }
 function camposPendentes(r){
@@ -852,8 +852,8 @@ async function syncSheets(silent=false){
   try{
     const res=await reqJSON('/api/sync-sheets',{method:'POST'});
     const r=res.resultado;
-    if(r.novas>0 || r.atualizadas>0 || r.titulares_novos>0 || r.titulares_atualizados>0){
-      notification('✓ Despesas: '+r.novas+' novas, '+r.atualizadas+' atualizadas. Titulares da Clara: '+(r.titulares_novos||0)+' novos, '+(r.titulares_atualizados||0)+' atualizados.');
+    if(r.novas>0 || r.atualizadas>0 || r.titulares_novos>0 || r.titulares_atualizados>0 || r.cartoes_novos>0 || r.cartoes_atualizados>0){
+      notification('✓ Despesas: '+r.novas+' novas, '+r.atualizadas+' atualizadas. Titulares da Clara: '+(r.titulares_novos||0)+' novos, '+(r.titulares_atualizados||0)+' atualizados; vínculos por cartão: '+(r.cartoes_novos||0)+' novos, '+(r.cartoes_atualizados||0)+' atualizados.');
       _autoSynced=true;
       await reload();
     }else{
