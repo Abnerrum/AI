@@ -156,19 +156,17 @@ html[data-theme="light"] #fontesDialog summary{color:#1b518f!important}
 @media(max-width:600px){ #themeToggle{min-width:auto}}
 @media print{body{background:#fff;color:#000}.top-bar{background:#1a3a80;-webkit-print-color-adjust:exact}.card{break-inside:avoid}.table-scroll{max-height:none}}
 
-/* Controle de rastreabilidade sem modificar os totais financeiros. */
-.ident-help{margin:6px 0 0;color:var(--muted);font-size:12px;line-height:1.55;max-width:730px}
+/* Identificação na própria tabela de despesas */
 #identForm textarea{display:block;box-sizing:border-box;width:100%;background:#091220;border:1px solid #1e3050;border-radius:9px;padding:11px;color:var(--text);font:inherit;resize:vertical}
 html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e8;color:#1c3758}
-.ident-counter{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap}
-.ident-scroll{max-height:420px}
-#identTable td{vertical-align:middle}
-.ident-footer{padding-top:10px;color:var(--muted);font-size:12px}
-.ident-missing{font-weight:600;color:#f4b567}
-.ident-person{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#a5d7fb}
-.ident-item{max-width:270px;overflow:hidden;text-overflow:ellipsis}
-#identTable .tbtn{white-space:nowrap}
-@media(max-width:850px){ .ident-scroll{max-height:330px} #identCard .table-head{display:block} #identCard .tbl-actions{margin-top:12px;flex-wrap:wrap} }
+.person-note{margin:0;padding:8px 14px 12px;font-size:12px;color:var(--muted);line-height:1.45}
+.person-cell{min-width:210px;max-width:260px}
+.person-name{font-weight:600;color:#aad7ff;white-space:normal;overflow-wrap:anywhere}
+.person-status{font-size:10px;color:var(--muted);margin-top:3px}
+.person-actions{display:flex;align-items:center;gap:8px}
+.person-edit{border:1px solid #385b94;background:transparent;color:#9fc7fb;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;white-space:nowrap}
+.person-edit:hover{background:#18335a}
+html[data-theme="light"] .person-name{color:#2058a6}
 </style>
 </head>
 <body>
@@ -244,36 +242,6 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
   </div>
 
 
-  <!-- Controle de identificação: somente quem consumiu alimentação ou utilizou material de OS. -->
-  <section class="card" id="identCard" aria-labelledby="identTitle">
-    <div class="table-head">
-      <div>
-        <div class="card-title" id="identTitle" style="margin:0">Pendências de identificação</div>
-        <p class="ident-help">Somente Alimentação e Material de OS. Combustível permanece em Frota, identificado pela placa do veículo. Lançamentos com consumidor explicitamente indicado na descrição ou registrado no sistema não aparecem como pendentes.</p>
-      </div>
-      <div class="tbl-actions">
-        <span id="identCount" class="ident-counter">0 pendentes</span>
-        <select id="identCategory" class="fsel" aria-label="Filtrar pendências por categoria">
-          <option value="">Ambas as categorias</option>
-          <option value="Alimentação">Alimentação</option>
-          <option value="Material de OS">Material de OS</option>
-        </select>
-        <input id="identSearch" class="tsearch" placeholder="Buscar pendência…" aria-label="Buscar pendência">
-        <button id="identCsv" class="tbtn" type="button">↓ CSV pendências</button>
-      </div>
-    </div>
-    <div class="table-scroll ident-scroll">
-      <table id="identTable">
-        <thead><tr>
-          <th>Data</th><th>Categoria</th><th>Despesa / descrição</th><th>Informação que falta</th>
-          <th>Atendimento</th><th>Nome disponível na fonte</th><th>Origem / ID</th><th>Valor</th><th>Ação</th>
-        </tr></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div class="ident-footer" id="identFooter">Informe o consumidor ou o responsável e o material usado; não atribua a compra ao titular do cartão automaticamente.</div>
-  </section>
-
   <!-- Detail table -->
   <div class="card">
     <div class="table-head">
@@ -293,6 +261,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
       <select id="detailPlate" class="fsel" aria-label="Placa ou cartão da tabela"><option value="">Todas as placas/cartões</option></select>
       <button class="tbtn" id="tableClear" type="button">✕ Limpar tabela</button>
     </div>
+    <p class="person-note">Os nomes da Clara aparecem como <strong>titulares dos cartões</strong>. Isso não confirma quem consumiu ou utilizou o material. Nos registros de frota, a identificação é feita pela placa.</p>
     <div class="table-scroll">
       <table id="detailTable">
         <thead><tr>
@@ -512,7 +481,6 @@ function render(){
   else{$('#periodBadge').textContent='Sem resultados';}
   updateCharts();
   renderTable();
-  renderPendencias();
 }
 
 function refreshDetailChoices(){
@@ -549,7 +517,12 @@ function renderTable(){
     <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(r.descricao)}">${esc(r.descricao)}</td>
     <td>${esc(r.placa)||'—'}</td>
     <td>${esc(r.atendimento)||'—'}</td>
-    <td class="ident-person" title="${esc(nomeTecnicoFonte(r))}">${esc(nomeTecnicoFonte(r))}</td>
+    <td class="person-cell" title="${esc(tipoNomeFonte(r))}">
+      <div class="person-actions">
+        <div><div class="person-name">${esc(nomeTecnicoFonte(r))}</div><div class="person-status">${esc(tipoNomeFonte(r))}</div></div>
+        ${['Alimentação','Material de OS'].includes(r.categoria)?`<button class="person-edit" type="button" data-ident-pk="${r.pk}" aria-label="Editar identificação de ${esc(r.descricao)}">Editar</button>`:''}
+      </div>
+    </td>
     <td>${esc(r.origem)||'—'}${r.origem==='MANUAL'?'<span class="badge-manual">MANUAL</span>':''}</td>
     <td>${brl(r.valor)}</td>
   </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
@@ -588,57 +561,25 @@ function pessoaCitadaNaFonte(r){
   return '';
 }
 function nomeTecnicoFonte(r){
-  // Para frota a identificação exigida é a placa (não um usuário pessoal).
+  // Prioriza a identificação realmente confirmada, sem atribuir consumo ao titular.
+  const placa=String(r.placa||'').trim();
   if(['Combustível','Locação','Manutenção','Infrações','Pedágio','Rastreamento'].includes(r.categoria)){
-    return String(r.placa||'').trim()?'Veículo: '+r.placa:'Placa não informada';
+    return placa ? placa : 'Placa não informada';
   }
-  if(!['Alimentação','Material de OS'].includes(r.categoria))return 'Não se aplica';
-  // Responsável de pagamento e consumidor/usuário do material são papéis diferentes.
-  const manual=String(r.responsavel_uso||'').trim();
-  if(manual)return 'Confirmado: '+manual;
-  const citado=pessoaCitadaNaFonte(r);
-  if(citado)return 'Pessoa(s) na descrição: '+citado;
+  const confirmado=String(r.responsavel_uso||'').trim();
+  if(confirmado)return confirmado;
+  const descricao=pessoaCitadaNaFonte(r);
+  if(descricao)return descricao;
   const titular=String(r.titular_cartao_fonte||'').trim();
-  if(titular)return 'Titular Clara ('+(r.titular_vinculo==='cartao'?'por cartão':'por transação')+', uso não confirmado): '+titular;
-  return 'Não identificado';
+  if(titular)return titular;
+  return 'Não informado';
 }
-function camposPendentes(r){
-  const falta=[];
-  if(r.categoria==='Alimentação'){
-    if(!String(r.responsavel_uso||'').trim()&&!pessoaCitadaNaFonte(r))falta.push('Quem se alimentou');
-  }else if(r.categoria==='Material de OS'){
-    if(!String(r.responsavel_uso||'').trim())falta.push('Quem utilizou');
-    if(!String(r.material_utilizado||'').trim())falta.push('Material efetivamente usado');
-  }
-  return falta;
-}
-function getPendencias(){
-  const cat=$('#identCategory').value,term=$('#identSearch').value.trim().toLocaleLowerCase('pt-BR');
-  return shown.filter(r=>{
-    if(!camposPendentes(r).length)return false;
-    if(cat&&r.categoria!==cat)return false;
-    if(term&&!([r.data,fmtDate(r.data),r.categoria,r.descricao,r.origem,r.id,r.atendimento,r.fornecedor]
-      .join(' ').toLocaleLowerCase('pt-BR').includes(term)))return false;
-    return true;
-  }).sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
-}
-function renderPendencias(){
-  const data=getPendencias();
-  $('#identCount').textContent=num(data.length)+' pendente'+(data.length===1?'':'s');
-  const visiveis=data.slice(0,150);
-  $('#identTable tbody').innerHTML=visiveis.length?visiveis.map(r=>`<tr>
-    <td>${esc(fmtDate(r.data))}</td>
-    <td>${esc(r.categoria)}</td>
-    <td class="ident-item" title="${esc(r.descricao)}">${esc(r.descricao)||'—'}</td>
-    <td class="ident-missing">${esc(camposPendentes(r).join(' + '))}</td>
-    <td>${esc(r.atendimento)||'—'}</td>
-    <td class="ident-person" title="${esc(nomeTecnicoFonte(r))}">${esc(nomeTecnicoFonte(r))}</td>
-    <td title="${esc(r.id)}">${esc(r.origem)} <small>${esc(r.id)}</small></td>
-    <td>${brl(r.valor)}</td>
-    <td><button class="tbtn primary" type="button" data-ident-pk="${r.pk}">Identificar</button></td>
-  </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:25px;color:var(--muted)">Nenhuma pendência para estes filtros.</td></tr>';
-  $('#identFooter').textContent=(data.length>150?'Exibindo as primeiras 150 de '+num(data.length)+' pendências. Use a busca ou exporte o CSV. ':'')
-    +'Não confunda o titular do cartão com quem consumiu, nem o fornecedor com quem utilizou o material.';
+function tipoNomeFonte(r){
+  if(['Combustível','Locação','Manutenção','Infrações','Pedágio','Rastreamento'].includes(r.categoria))return 'Veículo / placa';
+  if(String(r.responsavel_uso||'').trim())return 'Uso confirmado';
+  if(pessoaCitadaNaFonte(r))return 'Pessoa citada na descrição';
+  if(String(r.titular_cartao_fonte||'').trim())return 'Titular Clara — consumo não confirmado';
+  return 'Sem identificação na base';
 }
 function editarIdentificacao(pk){
   const r=all.find(x=>x.pk===pk);
@@ -654,12 +595,6 @@ function editarIdentificacao(pk){
   $('#identContext').textContent=r.categoria+' · '+fmtDate(r.data)+' · '+r.descricao+' · '+brl(r.valor);
   showDlg('identDialog');
 }
-$('#identTable tbody').addEventListener('click',e=>{
-  const btn=e.target.closest('[data-ident-pk]');
-  if(btn)editarIdentificacao(Number(btn.dataset.identPk));
-});
-$('#identCategory').addEventListener('change',renderPendencias);
-$('#identSearch').addEventListener('input',renderPendencias);
 $('#identForm').addEventListener('submit',async e=>{
   e.preventDefault();
   const pk=Number($('#identPk').value),button=$('#identSave');
@@ -678,19 +613,10 @@ $('#identForm').addEventListener('submit',async e=>{
   }catch(err){notification(err.message,'error')}
   finally{button.disabled=false;}
 });
-$('#identCsv').addEventListener('click',()=>{
-  const header=['Data','Categoria','Descrição','O que falta','Atendimento','Pessoa/titular na fonte','Origem','ID origem','Valor (R$)'];
-  const records=getPendencias().map(r=>[fmtDate(r.data),r.categoria,r.descricao,
-    camposPendentes(r).join(' + '),r.atendimento,nomeTecnicoFonte(r),r.origem,r.id,r.valor.toFixed(2).replace('.',',')]);
-  const cell=x=>{
-    let s=String(x??'');if(/^[=+@]/.test(s))s="'"+s;
-    return '"'+s.replace(/"/g,'""')+'"';
-  };
-  const blob=new Blob([String.fromCharCode(0xFEFF)+[header,...records].map(r=>r.map(cell).join(';')).join(String.fromCharCode(13,10))],
-    {type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');
-  a.href=url;a.download='pendencias-identificacao.csv';a.click();
-  setTimeout(()=>URL.revokeObjectURL(url),1000);
+// Editar a pessoa identificada sem tabela de pendências separada.
+$('#detailTable tbody').addEventListener('click',event=>{
+  const btn=event.target.closest('[data-ident-pk]');
+  if(btn)editarIdentificacao(Number(btn.dataset.identPk));
 });
 
 function load(data,live){
