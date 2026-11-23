@@ -588,6 +588,11 @@ function pessoaCitadaNaFonte(r){
   return '';
 }
 function nomeTecnicoFonte(r){
+  // Para frota a identificação exigida é a placa (não um usuário pessoal).
+  if(['Combustível','Locação','Manutenção','Infrações','Pedágio','Rastreamento'].includes(r.categoria)){
+    return String(r.placa||'').trim()?'Veículo: '+r.placa:'Placa não informada';
+  }
+  if(!['Alimentação','Material de OS'].includes(r.categoria))return 'Não se aplica';
   // Responsável de pagamento e consumidor/usuário do material são papéis diferentes.
   const manual=String(r.responsavel_uso||'').trim();
   if(manual)return 'Confirmado: '+manual;
@@ -674,9 +679,9 @@ $('#identForm').addEventListener('submit',async e=>{
   finally{button.disabled=false;}
 });
 $('#identCsv').addEventListener('click',()=>{
-  const header=['Data','Categoria','Descrição','O que falta','Atendimento','Origem','ID origem','Valor (R$)'];
+  const header=['Data','Categoria','Descrição','O que falta','Atendimento','Pessoa/titular na fonte','Origem','ID origem','Valor (R$)'];
   const records=getPendencias().map(r=>[fmtDate(r.data),r.categoria,r.descricao,
-    camposPendentes(r).join(' + '),r.atendimento,r.origem,r.id,r.valor.toFixed(2).replace('.',',')]);
+    camposPendentes(r).join(' + '),r.atendimento,nomeTecnicoFonte(r),r.origem,r.id,r.valor.toFixed(2).replace('.',',')]);
   const cell=x=>{
     let s=String(x??'');if(/^[=+@]/.test(s))s="'"+s;
     return '"'+s.replace(/"/g,'""')+'"';
@@ -808,8 +813,8 @@ $('#fonteForm').addEventListener('submit',async e=>{
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',()=>closeDlg(b.dataset.close));
 
 $('#csv').addEventListener('click',()=>{
-  const hdr=['Data','Categoria','Descrição','Tipo de atendimento','Origem','Placa/Cartão','Situação','Valor (R$)'];
-  const rows=getTableRows().map(r=>[r.data,r.categoria,r.descricao,r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',',')]);
+  const hdr=['Data','Categoria','Descrição','Tipo de atendimento','Origem','Placa/Cartão','Situação','Valor (R$)','Nome/Identificação informada'];
+  const rows=getTableRows().map(r=>[r.data,r.categoria,r.descricao,r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',','),nomeTecnicoFonte(r)]);
   const csv='﻿'+[hdr,...rows].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:'Despesas_Nucleo_Service.csv'});
   document.body.append(a);a.click();a.remove();
@@ -848,7 +853,7 @@ async function syncSheets(silent=false){
     const res=await reqJSON('/api/sync-sheets',{method:'POST'});
     const r=res.resultado;
     if(r.novas>0 || r.atualizadas>0 || r.titulares_novos>0 || r.titulares_atualizados>0){
-      notification('✓ '+r.novas+' novo(s) e '+r.atualizadas+' atualizado(s) do Google Sheets.');
+      notification('✓ Despesas: '+r.novas+' novas, '+r.atualizadas+' atualizadas. Titulares da Clara: '+(r.titulares_novos||0)+' novos, '+(r.titulares_atualizados||0)+' atualizados.');
       _autoSynced=true;
       await reload();
     }else{
