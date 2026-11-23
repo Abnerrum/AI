@@ -38,6 +38,7 @@ except ImportError:
 ROOT = Path(__file__).parent
 SHEETS_CSV_URL = os.getenv("SHEETS_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102031")
 CLARA_CSV_URL = os.getenv("CLARA_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102029")
+MAPA_CARTOES_CSV_URL = os.getenv("MAPA_CARTOES_CSV_URL", "https://docs.google.com/spreadsheets/d/1Q7SEEYhjRKY2Ro1eLPQh0fvXVbNj7ehyqc4OkM4lzOA/export?format=csv&gid=1901102051")
 DATABASE_URL = os.environ.get("DATABASE_URL", f"sqlite:///{ROOT / 'dados' / 'despesas.db'}")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
@@ -821,6 +822,47 @@ def sincronizar_titulares_clara(stream):
             "fonte_clara": len(registros)}
 
 
+def sincronizar_mapa_cartoes_clara(stream):
+    """Mapeia cartões aos titulares informados; não comprova quem consumiu/usou."""
+    raw = stream.read(2 * 1024 * 1024 + 1)
+    if len(raw) > 2 * 1024 * 1024:
+        raise ValueError("Mapa de cartões excede 2 MB.")
+    contents = raw.decode("utf-8-sig")
+    if contents.lstrip().lower().startswith(("<html", "<!doctype html")):
+        raise ValueError("Acesso ao mapa de cartões indisponível.")
+    reader = csv.DictReader(io.StringIO(contents))
+    if not reader.fieldnames or not {"Cartão Clara", "Titular / responsável"}.issubset(reader.fieldnames):
+        raise ValueError("Colunas de identificação do mapa Clara ausentes.")
+    entries = {}
+    for row in reader:
+        card = str(row.get("Cartão Clara") or "").strip()
+        holder = " ".join(str(row.get("Titular / responsável") or "").split())
+        if not card and not holder:
+            continue
+        if not re.fullmatch(r"\d{4}", card) or not holder or len(holder) > 255:
+            raise ValueError("Cartão ou titular inválido no mapa.")
+        if card in entries and entries[card] != holder:
+            raise ValueError("Titulares conflitantes para o mesmo cartão.")
+        entries[card] = holder
+    if not entries:
+        raise ValueError("Mapa de cartões Clara vazio.")
+
+    inserted = updated = 0
+    with SessionLocal.begin() as db:
+        stored = {x.cartao: x for x in db.scalars(select(TitularCartao)).all()}
+        for card, holder in entries.items():
+            existing = stored.get(card)
+            if existing is None:
+                db.add(TitularCartao(cartao=card, titular=holder))
+                inserted += 1
+            elif existing.titular != holder:
+                existing.titular = holder
+                existing.atualizado_em = datetime.now(timezone.utc)
+                updated += 1
+    return {"cartoes_novos": inserted, "cartoes_atualizados": updated,
+            "cartoes_mapeados": len(entries)}
+
+
 @app.post("/api/sync-sheets")
 async def sync_sheets(request: Request):
     require_auth(request)
@@ -848,6 +890,19 @@ async def sync_sheets(request: Request):
             # Sem adivinhar nomes: conservar registros já obtidos e permitir
             # que o administrador continue identificando os casos pendentes.
             result["aviso_titulares"] = "Não foi possível sincronizar os titulares da aba CLARA."
+        # O mapa explícito informado pelo gestor prevalece sobre a grafia e
+        # os vínculos inferidos do relatório de transações. É independente
+        # da importação da aba CLARA, para manter os nomes mesmo se ela falhar.
+        try:
+            req_mapa = _url_req.Request(MAPA_CARTOES_CSV_URL, headers={"User-Agent": "Mozilla/5.0"})
+            with _url_req.urlopen(req_mapa, timeout=30) as resp:
+                dados_mapa = resp.read(2 * 1024 * 1024 + 1)
+            resultado_mapa = sincronizar_mapa_cartoes_clara(io.BytesIO(dados_mapa))
+            result["cartoes_novos"] = result.get("cartoes_novos", 0) + resultado_mapa["cartoes_novos"]
+            result["cartoes_atualizados"] = result.get("cartoes_atualizados", 0) + resultado_mapa["cartoes_atualizados"]
+            result["cartoes_mapeados"] = resultado_mapa["cartoes_mapeados"]
+        except Exception:
+            result["aviso_mapa"] = "Não foi possível sincronizar o mapa de cartões Clara."
         return {"resultado": result}
     except HTTPException:
         raise
