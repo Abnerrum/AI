@@ -163,7 +163,7 @@ html[data-theme="light"] #identForm textarea{background:#fff;border-color:#c6d6e
 .person-cell{min-width:210px;max-width:260px}
 .person-name{font-weight:600;color:#aad7ff;white-space:normal;overflow-wrap:anywhere}
 .person-status{font-size:10px;color:var(--muted);margin-top:3px}
-.person-actions{display:flex;align-items:center;gap:8px}
+.person-actions{display:flex;align-items:flex-start;gap:8px}.person-actions>div{min-width:0;flex:1}.person-edit{flex-shrink:0}.person-status{white-space:normal;overflow-wrap:anywhere}.manual-detail{display:block;font-size:11px;color:var(--muted);white-space:normal;overflow-wrap:anywhere}
 .person-edit{border:1px solid #385b94;background:transparent;color:#9fc7fb;border-radius:6px;padding:3px 7px;font-size:10px;cursor:pointer;white-space:nowrap}
 .person-edit:hover{background:#18335a}
 html[data-theme="light"] .person-name{color:#2058a6}
@@ -502,7 +502,7 @@ function getTableRows(){
     if(origin&&r.origem!==origin)return false;
     if(type&&r.atendimento!==type)return false;
     if(plate&&r.placa!==plate)return false;
-    if(search&&!([r.data,fmtDate(r.data),r.categoria,r.descricao,r.placa,r.atendimento,r.origem,r.fornecedor,r.valor].join(' ').toLocaleLowerCase('pt-BR').includes(search)))return false;
+    if(search&&!([r.data,fmtDate(r.data),r.categoria,r.descricao,r.placa,r.atendimento,r.origem,r.fornecedor,r.valor,nomeTecnicoFonte(r),r.responsavel_uso,r.material_utilizado,r.referencia_os,r.observacoes_identificacao].join(' ').toLocaleLowerCase('pt-BR').includes(search)))return false;
     return true;
   });
 }
@@ -510,11 +510,12 @@ function renderTable(){
   refreshDetailChoices();
   const sorted=getTableRows().sort((a,b)=>b.data.localeCompare(a.data)||b.valor-a.valor);
   const viewport=$('.table-scroll');
+  const previousScroll=viewport.scrollTop;
   $('#detailTable tbody').innerHTML=sorted.length?sorted.map((r,i)=>`<tr>
     <td style="color:var(--muted)">${i+1}</td>
     <td>${esc(fmtDate(r.data))}</td>
     <td><span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${CAT_COLORS[r.categoria]||'#4a7cb8'};margin-right:6px"></span>${esc(r.categoria)}</td>
-    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(r.descricao)}">${esc(r.descricao)}</td>
+    <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis" title="${esc(r.descricao)}">${esc(descricaoExibida(r))}${r.material_utilizado?`<span class="manual-detail">Original: ${esc(r.descricao)}</span>`:''}${r.referencia_os?`<span class="manual-detail">OS: ${esc(r.referencia_os)}</span>`:''}</td>
     <td>${esc(r.placa)||'—'}</td>
     <td>${esc(r.atendimento)||'—'}</td>
     <td class="person-cell" title="${esc(tipoNomeFonte(r))}">
@@ -527,7 +528,7 @@ function renderTable(){
     <td>${brl(r.valor)}</td>
   </tr>`).join(''):'<tr><td colspan="9" style="text-align:center;padding:30px;color:var(--muted)">Nenhum lançamento encontrado.</td></tr>';
   $('#detailCount').textContent=num(sorted.length)+' de '+num(shown.length)+' registros';
-  viewport.scrollTop=0;
+  viewport.scrollTop=previousScroll;
 }
 
 
@@ -588,9 +589,13 @@ function nomeTecnicoFonte(r){
   if(titular)return titular;
   return 'Não informado';
 }
+function descricaoExibida(r){
+  return r.categoria==='Material de OS'&&String(r.material_utilizado||'').trim()?r.material_utilizado:r.descricao;
+}
 function tipoNomeFonte(r){
   if(['Combustível','Locação','Manutenção','Infrações','Pedágio','Rastreamento'].includes(r.categoria))return 'Veículo / placa';
-  if(String(r.responsavel_uso||'').trim())return 'Uso confirmado';
+  if(String(r.responsavel_uso||'').trim())return r.categoria==='Material de OS'&&!String(r.material_utilizado||'').trim()?'Responsável confirmado — material pendente':'Uso confirmado';
+  if(r.material_utilizado||r.referencia_os||r.observacoes_identificacao)return 'Identificação parcial — responsável pendente';
   if(pessoaCitadaNaFonte(r))return 'Pessoa citada na descrição';
   if(titularDoCartao(r))return 'Titular Clara — consumo não confirmado';
   return 'Sem identificação na base';
@@ -618,12 +623,21 @@ $('#identForm').addEventListener('submit',async e=>{
     referencia_os:$('#identOs').value,
     observacoes_identificacao:$('#identObs').value
   };
+  const original=all.find(r=>Number(r.pk)===pk);
+  const rCategoryField=key=>!['material_utilizado','referencia_os'].includes(key)||original?.categoria==='Material de OS';
   button.disabled=true;
   try{
     await reqJSON('/api/identificacoes/'+pk,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const result=await reqJSON('/api/records');
+    const saved=(result.registros||[]).find(r=>Number(r.pk)===pk);
+    if(!saved)throw new Error('Identificação salva, mas não foi possível localizar o lançamento atualizado.');
+    for(const key of ['responsavel_uso','material_utilizado','referencia_os','observacoes_identificacao']){
+      const expected=rCategoryField(key)?String(payload[key]||'').trim():'';
+      if(String(saved[key]||'')!==expected)throw new Error('Não foi possível confirmar a gravação de '+key+'.');
+    }
+    load(result.registros,true);
     closeDlg('identDialog');
-    notification('Identificação registrada sem modificar a despesa.');
-    await reload();
+    notification('Identificação salva e conferida no banco.');
   }catch(err){notification(err.message,'error')}
   finally{button.disabled=false;}
 });
@@ -753,8 +767,8 @@ $('#fonteForm').addEventListener('submit',async e=>{
 for(const b of document.querySelectorAll('[data-close]'))b.addEventListener('click',()=>closeDlg(b.dataset.close));
 
 $('#csv').addEventListener('click',()=>{
-  const hdr=['Data','Categoria','Descrição','Tipo de atendimento','Origem','Placa/Cartão','Situação','Valor (R$)','Nome/Identificação informada'];
-  const rows=getTableRows().map(r=>[r.data,r.categoria,r.descricao,r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',','),nomeTecnicoFonte(r)]);
+  const hdr=['Data','Categoria','Descrição','Tipo de atendimento','Origem','Placa/Cartão','Situação','Valor (R$)','Nome/Identificação informada','Material confirmado','OS','Observações','Descrição original','Status da identificação'];
+  const rows=getTableRows().map(r=>[r.data,r.categoria,descricaoExibida(r),r.atendimento,r.origem,r.placa,r.situacao,String(r.valor).replace('.',','),nomeTecnicoFonte(r),r.material_utilizado,r.referencia_os,r.observacoes_identificacao,r.descricao,tipoNomeFonte(r)]);
   const csv='﻿'+[hdr,...rows].map(row=>row.map(v=>'"'+String(v??'').replace(/"/g,'""')+'"').join(';')).join('\r\n');
   const a=Object.assign(document.createElement('a'),{href:URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})),download:'Despesas_Nucleo_Service.csv'});
   document.body.append(a);a.click();a.remove();
