@@ -40,7 +40,7 @@ button,input,select{font:inherit;cursor:pointer}button:disabled{opacity:.5;curso
 .filters-inline{display:flex;flex-direction:column;gap:7px}
 .filter-row{display:flex;gap:7px;flex-wrap:wrap}
 .fsel{background:#0d1626;border:1px solid #1e3050;border-radius:8px;padding:7px 10px;color:var(--text);min-width:130px;outline:none}
-.fsel:focus{border-color:var(--accent)}
+.date-filter{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px;white-space:nowrap}.date-filter input{color-scheme:dark;min-width:125px}.date-error{color:#ff9090;font-size:12px}.fsel:focus{border-color:var(--accent)}
 .period-box{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:8px 14px;text-align:right}
 .period-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
 .period-val{font-size:12px;color:#a0c0f0;font-weight:600;margin-top:3px}
@@ -210,9 +210,14 @@ html[data-theme="light"] .person-name{color:#2058a6}
         <select id="year" class="fsel"><option value="">Ano</option></select>
         <select id="startMonth" class="fsel"><option value="">Mês inicial</option></select>
         <select id="endMonth" class="fsel"><option value="">Mês final</option></select>
+      </div>
+      <div class="filter-row">
+        <label class="date-filter">Data inicial <input type="date" id="startDate" class="fsel"></label>
+        <label class="date-filter">Data final <input type="date" id="endDate" class="fsel"></label>
         <button class="tbtn primary" id="apply">✓ Aplicar</button>
         <button class="tbtn" id="clear">✕ Limpar</button>
       </div>
+      <span id="dateError" class="date-error" role="alert" hidden></span>
     </div>
     <div class="period-box">
       <div class="period-label">Período</div>
@@ -452,10 +457,14 @@ function resetOptions(){
   for(const id of['startMonth','endMonth']){for(const o of $('#'+id).options){if(o.value)o.text=fmtMonth(o.value)}}
 }
 
-function getF(){return Object.fromEntries(['category','type','origin','plate','year','startMonth','endMonth'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
+function getF(){return Object.fromEntries(['category','type','origin','plate','year','startMonth','endMonth','startDate','endDate'].map(k=>[k,$('#'+k)?.value?.trim()||'']))}
 
 function apply(){
   const f=getF();
+  const invalid=f.startDate&&f.endDate&&f.startDate>f.endDate;
+  $('#dateError').hidden=!invalid;
+  $('#dateError').textContent=invalid?'A data final deve ser igual ou posterior à inicial.':'';
+  if(invalid)return;
   shown=all.filter(r=>{
     const m=mkey(r);
     if(f.year&&!m.startsWith(f.year))return false;
@@ -464,6 +473,8 @@ function apply(){
     if(f.plate&&r.placa!==f.plate)return false;
     if(f.startMonth&&m<f.startMonth)return false;
     if(f.endMonth&&m>f.endMonth)return false;
+    if(f.startDate&&r.data<f.startDate)return false;
+    if(f.endDate&&r.data>f.endDate)return false;
     if(_segFilter&&r.atendimento!==_segFilter)return false;
     return true;
   });
@@ -478,7 +489,14 @@ function render(){
   $('#valGarantia').textContent=brl(guar);
   $('#valFora').textContent=brl(fora);
   const ms=shown.map(mkey).filter(Boolean).sort();
-  if(ms.length){$('#periodBadge').textContent=fmtMonth(ms[0])+' – '+fmtMonth(ms[ms.length-1]);}
+  if(ms.length){
+    const f=getF();
+    if(f.startDate||f.endDate){
+      const ds=shown.map(r=>r.data).sort();
+      const fmt=d=>d.split('-').reverse().join('/');
+      $('#periodBadge').textContent=ds[0]===ds[ds.length-1]?fmt(ds[0]):fmt(ds[0])+' – '+fmt(ds[ds.length-1]);
+    }else{$('#periodBadge').textContent=fmtMonth(ms[0])+' – '+fmtMonth(ms[ms.length-1]);}
+  }
   else{$('#periodBadge').textContent='Sem resultados';}
   updateCharts();
   renderTable();
@@ -702,7 +720,7 @@ $('#btnFora').addEventListener('click',()=>{
 });
 
 $('#apply').addEventListener('click',apply);
-$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
+$('#clear').addEventListener('click',()=>{for(const id of['category','origin','plate','year','startMonth','endMonth','startDate','endDate'])$('#'+id)&&($('#'+id).value='');_segFilter='';$('#btnGarantia').classList.remove('active');$('#btnFora').classList.remove('active');apply()});
 for(const id of ['detailMonth','detailCategory','detailOrigin','detailType','detailPlate'])$('#'+id).addEventListener('change',renderTable);
 $('#search').addEventListener('input',renderTable);
 $('#tableClear').addEventListener('click',()=>{
